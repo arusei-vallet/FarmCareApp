@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "farmcare-expo",
+    "slug": "farmcare-expo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#2ECC71"
+    },
+    "ios": { "supportsTablet": true },
+    "android": {
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    }
+  }
+}
