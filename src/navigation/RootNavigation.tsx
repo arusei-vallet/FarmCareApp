@@ -14,6 +14,8 @@ import OnboardingScreen from '../screens/auth/OnboardingScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import InventoryScreen from '../screens/farmer/InventoryScreen';
+import AnalyticsScreen from '../screens/farmer/AnalyticsScreen';
 
 // Navigation Stacks
 import CustomerTabs from './CustomerTabs';
@@ -109,6 +111,8 @@ const RootNavigation = () => {
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+        <Stack.Screen name="InventoryScreen" component={InventoryScreen} />
+<Stack.Screen name="AnalyticsScreen" component={AnalyticsScreen} />
 
         {/* Role-based tabs - always registered so navigation targets exist */}
         <Stack.Screen name="CustomerTabs" component={CustomerTabs} />

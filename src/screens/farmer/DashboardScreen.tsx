@@ -48,8 +48,8 @@ const Dashboard: React.FC = () => {
   const quickActions = [
     { id: 1, label: "Add Product", icon: "plus-circle-outline", action: () => navigation.navigate("Products") },
     { id: 2, label: "Manage Orders", icon: "truck-outline", action: () => navigation.navigate("Orders") },
-    { id: 3, label: "Inventory", icon: "warehouse", action: () => Alert.alert("Info", "Inventory tapped") },
-    { id: 4, label: "Analytics", icon: "chart-line", action: () => Alert.alert("Info", "Analytics tapped") },
+    { id: 3, label: "Inventory", icon: "warehouse", action: () => navigation.navigate("InventoryScreen") },
+    { id: 4, label: "Analytics", icon: "chart-line", action: () => navigation.navigate("AnalyticsScreen") },
   ];
 
   const recentOrders = [
