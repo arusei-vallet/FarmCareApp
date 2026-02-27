@@ -20,11 +20,18 @@ import Ionicons from 'react-native-vector-icons/Ionicons'
 import * as ImagePicker from 'expo-image-picker'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+
+type RootStackParamList = {
+  Login: undefined
+}
+
+type ProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 const { width } = Dimensions.get('window')
 
 const ProfileScreen = () => {
-  const navigation = useNavigation()
+  const navigation = useNavigation<ProfileScreenNavigationProp>()
   const fadeAnim = useRef(new Animated.Value(0)).current
   const slideAnim = useRef(new Animated.Value(20)).current
 

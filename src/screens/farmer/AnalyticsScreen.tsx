@@ -71,6 +71,7 @@ const AnalyticsScreen = () => {
             width={screenWidth - 40}
             height={220}
             yAxisLabel="KES "
+            yAxisSuffix=""
             chartConfig={chartConfig}
             style={styles.chartStyle}
             fromZero

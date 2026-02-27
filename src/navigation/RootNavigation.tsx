@@ -17,57 +17,68 @@ import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import InventoryScreen from '../screens/farmer/InventoryScreen';
 import AnalyticsScreen from '../screens/farmer/AnalyticsScreen';
 
-// Navigation Stacks
+// Tab Navigators
 import CustomerTabs from './CustomerTabs';
 import FarmerTabs from './FarmerTabs';
 import AgroTabs from './AgroTabs';
 
-const Stack = createNativeStackNavigator();
+// ────────────────────────────────────────────────
+
+export type RootStackParamList = {
+  Splash: undefined;
+  Onboarding: undefined;
+  Login: undefined;
+  RegisterScreen: undefined;
+  ForgotPassword: undefined;
+  CustomerTabs: undefined;
+  FarmerTabs: undefined;
+  AgroTabs: undefined;
+  InventoryScreen: undefined;
+  AnalyticsScreen: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const RootNavigation = () => {
   const [isAppReady, setIsAppReady] = useState(false);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-
-  const fetchUserRole = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (error) {
-        console.log('Error fetching user role:', error.message);
-        return null;
-      }
-
-      return data?.role || null;
-    } catch (err) {
-      console.log('Unexpected error fetching user role:', err);
-      return null;
-    }
-  };
+  const [initialRoute, setInitialRoute] = useState<'Splash' | 'Login' | 'CustomerTabs' | 'FarmerTabs' | 'AgroTabs'>('Splash');
 
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Simulate splash delay
+        // Splash delay
         await new Promise(resolve => setTimeout(resolve, 2000));
 
-        const { data } = await supabase.auth.getSession();
-        const user = data?.session?.user;
+        const { data: { session } } = await supabase.auth.getSession();
 
-        if (user) {
-          const role = await fetchUserRole(user.id);
-          setUserRole(role);
-          setIsLoggedIn(true);
+        if (session?.user) {
+          // User is logged in → fetch role and decide dashboard
+          const { data: profile, error } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', session.user.id)
+            .maybeSingle();
+
+          if (!error && profile?.role) {
+            const role = profile.role;
+            if (role === 'customer') {
+              setInitialRoute('CustomerTabs');
+            } else if (role === 'farmer') {
+              setInitialRoute('FarmerTabs');
+            } else if (role === 'agrodealer') {
+              setInitialRoute('AgroTabs');
+            } else {
+              setInitialRoute('Login'); // fallback
+            }
+          } else {
+            setInitialRoute('Login');
+          }
         } else {
-          setIsLoggedIn(false);
+          setInitialRoute('Login');
         }
       } catch (err) {
-        console.log('Initialization error:', err);
-        setIsLoggedIn(false);
+        console.error('Init error:', err);
+        setInitialRoute('Login');
       } finally {
         setIsAppReady(true);
       }
@@ -75,21 +86,33 @@ const RootNavigation = () => {
 
     initializeApp();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        const user = session?.user;
-        if (user) {
-          const role = await fetchUserRole(user.id);
-          setUserRole(role);
-          setIsLoggedIn(true);
-        } else {
-          setUserRole(null);
-          setIsLoggedIn(false);
-        }
-      }
-    );
+    // Listen for auth changes (login/logout)
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_, session) => {
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', session.user.id)
+          .maybeSingle();
 
-    return () => authListener?.subscription?.unsubscribe();
+        const role = profile?.role;
+
+        if (role === 'customer') {
+          // You can use navigation ref or dispatch here if needed
+          // For simplicity, we can reload or handle in screens
+        } else if (role === 'farmer') {
+          //
+        } else if (role === 'agrodealer') {
+          //
+        }
+      } else {
+        // Logged out → go back to Login (you can use navigation ref)
+      }
+    });
+
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
   }, []);
 
   if (!isAppReady) {
@@ -102,22 +125,34 @@ const RootNavigation = () => {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {/* Splash always first */}
+      <Stack.Navigator
+        initialRouteName={initialRoute}
+        screenOptions={{ headerShown: false }}
+      >
         <Stack.Screen name="Splash" component={SplashScreen} />
-
-        {/* Auth screens - always available for navigation */}
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Register" component={RegisterScreen} />
+        <Stack.Screen name="RegisterScreen" component={RegisterScreen} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-        <Stack.Screen name="InventoryScreen" component={InventoryScreen} />
-<Stack.Screen name="AnalyticsScreen" component={AnalyticsScreen} />
 
-        {/* Role-based tabs - always registered so navigation targets exist */}
-        <Stack.Screen name="CustomerTabs" component={CustomerTabs} />
-        <Stack.Screen name="FarmerTabs" component={FarmerTabs} />
-        <Stack.Screen name="AgroTabs" component={AgroTabs} />
+        <Stack.Screen
+          name="CustomerTabs"
+          component={CustomerTabs}
+          options={{ gestureEnabled: false }}
+        />
+        <Stack.Screen
+          name="FarmerTabs"
+          component={FarmerTabs}
+          options={{ gestureEnabled: false }}
+        />
+        <Stack.Screen
+          name="AgroTabs"
+          component={AgroTabs}
+          options={{ gestureEnabled: false }}
+        />
+
+        <Stack.Screen name="InventoryScreen" component={InventoryScreen} />
+        <Stack.Screen name="AnalyticsScreen" component={AnalyticsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

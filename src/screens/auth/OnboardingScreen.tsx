@@ -32,7 +32,7 @@ const slides = [
 ]
 
 const OnboardingScreen = () => {
-  const navigation = useNavigation()
+  const navigation = useNavigation<any>() // Relaxed type for navigation
 
   return (
     <Swiper
@@ -51,10 +51,11 @@ const OnboardingScreen = () => {
           <Text style={styles.title}>{slide.title}</Text>
           <Text style={styles.description}>{slide.description}</Text>
 
+          {/* Show Get Started button only on the last slide */}
           {index === slides.length - 1 && (
             <TouchableOpacity
               style={styles.button}
-              onPress={() => navigation.navigate('Login' as never)}
+              onPress={() => navigation.replace('Login')} // Updated navigation
             >
               <Text style={styles.buttonText}>Get Started</Text>
             </TouchableOpacity>

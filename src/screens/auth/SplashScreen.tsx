@@ -13,7 +13,7 @@ import { useNavigation } from '@react-navigation/native'
 const { width, height } = Dimensions.get('window')
 
 const SplashScreen = () => {
-  const navigation = useNavigation()
+  const navigation = useNavigation<any>()
   const fadeAnim = useRef(new Animated.Value(0)).current
   const titleAnim = useRef(new Animated.Value(0)).current
   const subtitleAnim = useRef(new Animated.Value(0)).current
@@ -34,14 +34,14 @@ const SplashScreen = () => {
       useNativeDriver: true,
     }).start()
 
-    // Scale and entrance animation for circles
+    // Scale animation
     Animated.timing(scaleAnim, {
       toValue: 1,
       duration: 1200,
       useNativeDriver: true,
     }).start()
 
-    // Continuous rotation animation
+    // Continuous rotation
     Animated.loop(
       Animated.timing(rotateAnim, {
         toValue: 1,
@@ -50,7 +50,6 @@ const SplashScreen = () => {
       })
     ).start()
 
-    // Enhanced pulsing animation for circles
     const createCircleAnimation = (
       scaleRef: Animated.Value,
       opacityRef: Animated.Value
@@ -90,11 +89,9 @@ const SplashScreen = () => {
     const anim3 = createCircleAnimation(circle3Scale, circle3Opacity)
 
     anim1.start()
-    
     setTimeout(() => anim2.start(), 400)
     setTimeout(() => anim3.start(), 800)
 
-    // Animate title and subtitle with staggered entrance
     Animated.sequence([
       Animated.delay(600),
       Animated.parallel([
@@ -111,13 +108,14 @@ const SplashScreen = () => {
       }),
     ]).start()
 
-    // Navigate to Onboarding after 3s
+    // ✅ Navigate after 3 seconds
     const timer = setTimeout(() => {
-      navigation.navigate('Onboarding' as never)
+      navigation.replace('Onboarding')
     }, 3000)
 
     return () => clearTimeout(timer)
   }, [])
+
   const rotateInterpolate = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
@@ -126,53 +124,42 @@ const SplashScreen = () => {
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <View style={styles.background}>
-        {/* Professional gradient background */}
         <View style={styles.gradientOverlay} />
         <View style={styles.gradientAccent} />
 
-        {/* Animated circles at center with rotation */}
-        <Animated.View style={[styles.circlesContainer, { transform: [{ rotate: rotateInterpolate }] }]}>
-            {/* Circle 3 - Outermost */}
-            <Animated.View
-              style={[
-                styles.circle,
-                styles.circle3,
-                {
-                  transform: [{ scale: circle3Scale }],
-                  opacity: circle3Opacity,
-                },
-              ]}
-            />
+        <Animated.View
+          style={[
+            styles.circlesContainer,
+            { transform: [{ rotate: rotateInterpolate }] },
+          ]}
+        >
+          <Animated.View
+            style={[
+              styles.circle,
+              styles.circle3,
+              { transform: [{ scale: circle3Scale }], opacity: circle3Opacity },
+            ]}
+          />
 
-            {/* Circle 2 - Middle */}
-            <Animated.View
-              style={[
-                styles.circle,
-                styles.circle2,
-                {
-                  transform: [{ scale: circle2Scale }],
-                  opacity: circle2Opacity,
-                },
-              ]}
-            />
+          <Animated.View
+            style={[
+              styles.circle,
+              styles.circle2,
+              { transform: [{ scale: circle2Scale }], opacity: circle2Opacity },
+            ]}
+          />
 
-            {/* Circle 1 - Inner */}
-            <Animated.View
-              style={[
-                styles.circle,
-                styles.circle1,
-                {
-                  transform: [{ scale: circle1Scale }],
-                  opacity: circle1Opacity,
-                },
-              ]}
-            />
+          <Animated.View
+            style={[
+              styles.circle,
+              styles.circle1,
+              { transform: [{ scale: circle1Scale }], opacity: circle1Opacity },
+            ]}
+          />
 
-            {/* Center core circle with enhanced styling */}
-            <View style={styles.coreCircle} />
+          <View style={styles.coreCircle} />
         </Animated.View>
 
-        {/* Content - positioned below circles */}
         <View style={styles.textContainer}>
           <Animated.Text
             style={[
@@ -220,9 +207,7 @@ const SplashScreen = () => {
 export default SplashScreen
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   background: {
     flex: 1,
     width,
@@ -238,14 +223,6 @@ const styles = StyleSheet.create({
   gradientAccent: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(76, 175, 80, 0.03)',
-  },
-  circlesWrapper: {
-    position: 'absolute',
-    width: 320,
-    height: 320,
-    justifyContent: 'center',
-    alignItems: 'center',
-    top: '20%',
   },
   circlesContainer: {
     position: 'relative',
@@ -281,10 +258,7 @@ const styles = StyleSheet.create({
     height: 70,
     borderRadius: 35,
     backgroundColor: '#4CAF50',
-    shadowColor: '#2E7D32',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
+    boxShadow: '0px 8px 20px rgba(46,125,50,0.35)', // ✅ fixed shadow deprecation
     elevation: 15,
   },
   textContainer: {
