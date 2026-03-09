@@ -141,15 +141,13 @@ const LoginScreen: React.FC = () => {
           return;
         }
 
-        const role = userData.role as 'customer' | 'farmer' | 'agrodealer' | string;
+        const role = userData.role as 'customer' | 'farmer' | string;
 
         // Professional role-based navigation with replace (no back to login)
         if (role === 'customer') {
           navigation.replace('CustomerTabs');
         } else if (role === 'farmer') {
           navigation.replace('FarmerTabs');
-        } else if (role === 'agrodealer') {
-          navigation.replace('AgroTabs');
         } else {
           Alert.alert(
             'Role Not Recognized',
@@ -179,15 +177,15 @@ const LoginScreen: React.FC = () => {
 
   return (
     <LinearGradient
-      colors={['#e6f5e6', '#c8e6c9', '#a5d6a7']}
-      style={{ flex: 1 }}
+      colors={['#f5f9f5', '#e8f5e9', '#ffffff']}
+      style={styles.container}
     >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          contentContainerStyle={styles.container}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -276,6 +274,9 @@ export default LoginScreen;
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
     padding: 24,

@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS public.users (
     email TEXT NOT NULL,
     full_name TEXT,
     phone TEXT,
-    role TEXT NOT NULL CHECK (role IN ('customer', 'farmer', 'agrodealer')),
+    role TEXT NOT NULL CHECK (role IN ('customer', 'farmer')),
     business_name TEXT,
     license_number TEXT,
     avatar_url TEXT,
@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS public.products (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     seller_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
     category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
+    category TEXT,
     name TEXT NOT NULL,
     description TEXT,
     price DECIMAL(10, 2) NOT NULL,
@@ -111,6 +112,7 @@ CREATE TABLE IF NOT EXISTS public.products (
 
 CREATE INDEX IF NOT EXISTS idx_products_seller ON public.products(seller_id);
 CREATE INDEX IF NOT EXISTS idx_products_category ON public.products(category_id);
+CREATE INDEX IF NOT EXISTS idx_products_category_text ON public.products(category);
 CREATE INDEX IF NOT EXISTS idx_products_available ON public.products(is_available);
 
 -- ============================================================

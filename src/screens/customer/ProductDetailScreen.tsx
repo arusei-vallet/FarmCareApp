@@ -32,11 +32,12 @@ interface ProductDetail extends Product {
   id?: string
   description?: string
   rating?: number
-  reviews?: number
+  review_count?: number
   stock?: number
   images?: string[]
   seller?: string
   category?: string
+  unit?: string
 }
 
 const ProductDetailScreen = () => {
@@ -56,11 +57,10 @@ const ProductDetailScreen = () => {
     )
   }
 
-  const images = product.images || [
-    'https://images.unsplash.com/photo-1601004890684-d8cbf643f5f2?w=800&q=60',
-    'https://images.unsplash.com/photo-1589927986089-35812388d1f4?w=800&q=60',
-    'https://images.unsplash.com/photo-1550989460-0adf9ea622e2?w=800&q=60',
-  ]
+  // Use actual product images from the database
+  const images = product.images && product.images.length > 0
+    ? product.images
+    : []
 
   const handleAddToCart = () => {
     for (let i = 0; i < quantity; i++) {
@@ -72,7 +72,7 @@ const ProductDetailScreen = () => {
     }
     Alert.alert(
       'Added to Cart',
-      `${quantity} x ${product.name} has been added to your cart`,
+      `${quantity} ${product.unit || 'kg'} of ${product.name} has been added to your cart`,
       [
         { text: 'Continue Shopping', style: 'cancel' },
         { text: 'Go to Cart', onPress: () => navigation.goBack() },
@@ -88,7 +88,7 @@ const ProductDetailScreen = () => {
   const totalPrice = (parseFloat(product.price.replace(/[^0-9.]/g, '')) || 0) * quantity
 
   return (
-    <LinearGradient colors={['#e6f5e6', '#c8e6c9', '#a5d6a7']} style={styles.container}>
+    <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
       {/* Header */}
@@ -110,19 +110,28 @@ const ProductDetailScreen = () => {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Product Images */}
         <View style={styles.imageContainer}>
-          <Image source={{ uri: images[selectedImage] }} style={styles.mainImage} />
+          {images.length > 0 ? (
+            <>
+              <Image source={{ uri: images[selectedImage] }} style={styles.mainImage} resizeMode="cover" />
 
-          {images.length > 1 && (
-            <View style={styles.imageThumbnails}>
-              {images.map((img, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[styles.thumbnail, selectedImage === index && styles.thumbnailActive]}
-                  onPress={() => setSelectedImage(index)}
-                >
-                  <Image source={{ uri: img }} style={styles.thumbnailImage} />
-                </TouchableOpacity>
-              ))}
+              {images.length > 1 && (
+                <View style={styles.imageThumbnails}>
+                  {images.map((img, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[styles.thumbnail, selectedImage === index && styles.thumbnailActive]}
+                      onPress={() => setSelectedImage(index)}
+                    >
+                      <Image source={{ uri: img }} style={styles.thumbnailImage} resizeMode="cover" />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </>
+          ) : (
+            <View style={styles.noImageContainer}>
+              <Ionicons name="image-outline" size={80} color="#ccc" />
+              <Text style={styles.noImageText}>No images available</Text>
             </View>
           )}
         </View>
@@ -148,7 +157,7 @@ const ProductDetailScreen = () => {
               ))}
             </View>
             <Text style={styles.reviewsText}>
-              ({product.reviews || 128} reviews)
+              ({product.review_count || 128} reviews)
             </Text>
             <Text style={styles.soldText}>• 500+ sold</Text>
           </View>
@@ -173,8 +182,8 @@ const ProductDetailScreen = () => {
             <Text style={styles.sectionTitle}>Description</Text>
             <Text style={styles.description}>
               {product.description ||
-                `Fresh ${product.name.toLowerCase()} sourced directly from local farmers. 
-                High quality, organic, and perfect for your daily cooking needs. 
+                `Fresh ${product.name.toLowerCase()} sourced directly from local farmers.
+                High quality, organic, and perfect for your daily cooking needs.
                 Rich in nutrients and flavor.`}
             </Text>
           </View>
@@ -213,7 +222,7 @@ const ProductDetailScreen = () => {
               </View>
               <View style={styles.sellerInfo}>
                 <Text style={styles.sellerName}>
-                  {product.seller || 'Green Valley Farm'}
+                  {product.seller || 'Local Farmer'}
                 </Text>
                 <View style={styles.sellerRating}>
                   <Ionicons name="shield-checkmark" size={14} color={PRIMARY} />
@@ -278,6 +287,18 @@ const styles = StyleSheet.create({
     width: width,
     height: width,
     backgroundColor: '#E8F5E9',
+  },
+  noImageContainer: {
+    width: width,
+    height: width,
+    backgroundColor: '#E8F5E9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  noImageText: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 12,
   },
   imageThumbnails: {
     flexDirection: 'row',

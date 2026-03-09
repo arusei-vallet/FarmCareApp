@@ -120,7 +120,7 @@ const CartScreen: React.FC = () => {
 
   if (cartItems.length === 0) {
     return (
-      <LinearGradient colors={['#e6f5e6', '#c8e6c9', '#a5d6a7']} style={styles.container}>
+      <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={styles.container}>
         <StatusBar barStyle="dark-content" />
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIcon}>
@@ -142,7 +142,7 @@ const CartScreen: React.FC = () => {
   }
 
   return (
-    <LinearGradient colors={['#e6f5e6', '#c8e6c9', '#a5d6a7']} style={styles.container}>
+    <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
       {/* Header */}

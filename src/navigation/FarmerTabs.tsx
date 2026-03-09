@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
+import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { StyleSheet, Animated, View } from 'react-native'
 import Ionicons from 'react-native-vector-icons/Ionicons'
 import MCIcon from 'react-native-vector-icons/MaterialCommunityIcons'
@@ -8,9 +9,23 @@ import MCIcon from 'react-native-vector-icons/MaterialCommunityIcons'
 import DashboardScreen from '../screens/farmer/DashboardScreen'
 import ProductsScreen from '../screens/farmer/ProductsScreen'
 import OrdersScreen from '../screens/farmer/OrdersScreen'
+import OrderDetailScreen from '../screens/farmer/OrderDetailScreen'
 import ProfileScreen from '../screens/farmer/ProfileScreen'
+import InventoryScreen from '../screens/farmer/InventoryScreen'
+import AnalyticsScreen from '../screens/farmer/AnalyticsScreen'
 
 const Tab = createBottomTabNavigator()
+const OrderStack = createNativeStackNavigator()
+
+// Order Stack Navigator
+const OrderStackNavigator = () => {
+  return (
+    <OrderStack.Navigator screenOptions={{ headerShown: false }}>
+      <OrderStack.Screen name="OrdersList" component={OrdersScreen} />
+      <OrderStack.Screen name="OrderDetail" component={OrderDetailScreen} />
+    </OrderStack.Navigator>
+  )
+}
 
 /* 🔥 Modern Animated Icon */
 const TabIcon = ({ focused, activeIcon, inactiveIcon, type }: any) => {
@@ -90,13 +105,45 @@ const FarmerTabs = () => {
       {/* Orders */}
       <Tab.Screen
         name="Orders"
-        component={OrdersScreen}
+        component={OrderStackNavigator}
         options={{
           tabBarIcon: ({ focused }) => (
             <TabIcon
               focused={focused}
               activeIcon="clipboard-list"
               inactiveIcon="clipboard-list-outline"
+              type="mc"
+            />
+          ),
+        }}
+      />
+
+      {/* Inventory */}
+      <Tab.Screen
+        name="Inventory"
+        component={InventoryScreen}
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <TabIcon
+              focused={focused}
+              activeIcon="warehouse"
+              inactiveIcon="truck-delivery"
+              type="mc"
+            />
+          ),
+        }}
+      />
+
+      {/* Analytics */}
+      <Tab.Screen
+        name="Analytics"
+        component={AnalyticsScreen}
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <TabIcon
+              focused={focused}
+              activeIcon="chart-line"
+              inactiveIcon="chart-line"
               type="mc"
             />
           ),

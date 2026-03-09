@@ -160,7 +160,7 @@ const OrdersScreen = () => {
   )
 
   return (
-    <LinearGradient colors={['#e6f5e6', '#c8e6c9', '#a5d6a7']} style={styles.container}>
+    <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
       {/* Header */}

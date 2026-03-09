@@ -31,7 +31,6 @@ export const COLORS = {
   // Role-specific colors
   CUSTOMER: '#2ECC71',
   FARMER: '#1B5E20',
-  AGRODEALER: '#2196F3',
 };
 
 export const FONTS = {

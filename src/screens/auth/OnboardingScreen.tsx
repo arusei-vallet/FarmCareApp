@@ -8,73 +8,43 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native'
-import Swiper from 'react-native-swiper'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useNavigation } from '@react-navigation/native'
 
 const { width } = Dimensions.get('window')
 
-const slides = [
-  {
-    title: 'Fresh Farm Produce',
-    description:
-      'Get fresh fruits, vegetables, grains, and legumes from local farmers.',
-  },
-  {
-    title: 'Easy Ordering',
-    description:
-      'Order your farm produce easily and get delivery at your doorstep.',
-  },
-  {
-    title: 'Connect with Farmers',
-    description:
-      'Grow your network and buy directly from trusted farmers.',
-  },
-]
-
 const OnboardingScreen = () => {
-  const navigation = useNavigation<any>() // Relaxed type for navigation
+  const navigation = useNavigation<any>()
 
   return (
-    <Swiper
-      loop={false}
-      showsPagination
-      activeDotColor="#2ECC71"
-      dotColor="#ccc"
-    >
-      {slides.map((slide, index) => (
-        <View key={index} style={styles.slide}>
-          {/* Placeholder Icon Circle */}
-          <View style={styles.placeholderCircle}>
-            <Text style={styles.emoji}>🌱</Text>
-          </View>
+    <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={styles.container}>
+      <View style={styles.placeholderCircle}>
+        <Text style={styles.emoji}>🌱</Text>
+      </View>
 
-          <Text style={styles.title}>{slide.title}</Text>
-          <Text style={styles.description}>{slide.description}</Text>
+      <Text style={styles.title}>Connect with Farmers</Text>
+      <Text style={styles.description}>
+        Grow your network and buy directly from trusted farmers.
+      </Text>
 
-          {/* Show Get Started button only on the last slide */}
-          {index === slides.length - 1 && (
-            <TouchableOpacity
-              style={styles.button}
-              onPress={() => navigation.replace('Login')} // Updated navigation
-            >
-              <Text style={styles.buttonText}>Get Started</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      ))}
-    </Swiper>
+      <TouchableOpacity
+        style={styles.button}
+        onPress={() => navigation.replace('Login')}
+      >
+        <Text style={styles.buttonText}>Get Started</Text>
+      </TouchableOpacity>
+    </LinearGradient>
   )
 }
 
 export default OnboardingScreen
 
 const styles = StyleSheet.create({
-  slide: {
+  container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 25,
-    backgroundColor: '#ffffff',
   },
   placeholderCircle: {
     width: width * 0.5,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -6,87 +6,273 @@ import {
   TextInput,
   ScrollView,
   TouchableOpacity,
-  StatusBar
+  StatusBar,
+  FlatList,
+  Image,
+  ActivityIndicator,
+  Modal,
 } from 'react-native'
 import Icon from 'react-native-vector-icons/Ionicons'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { useCart, Product } from './CartContext'
+import { useCart } from './CartContext'
+import { useProducts, Product as ContextProduct } from '../../context/ProductContext'
+import { supabase } from '../../services/supabase'
 
 const PRIMARY = '#1B5E20'
 const ACCENT = '#2ECC71'
 const LIGHT_BG = '#F4F7F5'
 
-type FilterType = 'None' | 'Most Purchased' | 'Latest'
+type FilterType = 'None' | 'Most Purchased' | 'Latest' | 'Low Price' | 'High Price'
 
 type RootStackParamList = {
   Home: undefined
   Categories: { category: string }
   Cart: undefined
-  ProductDetail: { product: Product }
+  ProductDetail: { product: ContextProduct & { images?: string[]; seller?: string; rating?: number; review_count?: number; unit?: string } }
+  Checkout: undefined
 }
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>
 
+// Extend product type for UI state
+interface ProductWithUI extends ContextProduct {
+  mostPurchased?: boolean
+  latest?: boolean
+}
+
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>()
   const { addItem } = useCart()
+  const { products, loading } = useProducts()
 
   const [showAll, setShowAll] = useState<boolean>(false)
   const [favorites, setFavorites] = useState<boolean>(false)
   const [notifications, setNotifications] = useState<boolean>(false)
   const [filterActive, setFilterActive] = useState<boolean>(false)
   const [filterType, setFilterType] = useState<FilterType>('None')
-  const [addedToCart, setAddedToCart] = useState<{ [key: string]: boolean }>({}) // Track added items for UI
+  const [addedToCart, setAddedToCart] = useState<{ [key: string]: boolean }>({})
+
+  // Search functionality
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filteredProducts, setFilteredProducts] = useState<ProductWithUI[]>([])
+
+  // Notification state
+  const [notificationList, setNotificationList] = useState<any[]>([])
+  const [unreadCount, setUnreadCount] = useState<number>(0)
+  const [showNotificationsModal, setShowNotificationsModal] = useState<boolean>(false)
+  const [notificationLoading, setNotificationLoading] = useState<boolean>(false)
 
   const allCategories: string[] = [
     'Grains','Vegetables','Fruits','Legumes','Spices','Herbs','Tubers',
     'Seeds','Nuts','Organic Produce','Dairy','Poultry','Seafood'
   ]
 
-  const baseProducts: Product[] = [
-    { name:'Tomatoes', price:'KES 120/kg', mostPurchased:true, latest:false },
-    { name:'Onions', price:'KES 100/kg', mostPurchased:true, latest:true },
-    { name:'Cabbage', price:'KES 80', mostPurchased:false, latest:true },
-    { name:'Maize', price:'KES 60/kg', mostPurchased:false, latest:true },
-  ]
+  // Convert context products to UI products
+  const productsWithUI: ProductWithUI[] = products.map((p, index) => ({
+    ...p,
+    mostPurchased: index % 2 === 0,
+    latest: index % 3 === 0,
+  }))
 
-  const filteredProducts: Product[] = baseProducts.filter(p => {
-    if(filterType === 'Most Purchased') return p.mostPurchased
-    if(filterType === 'Latest') return p.latest
-    return p.mostPurchased || p.latest
-  })
+  // Filter and search products
+  useEffect(() => {
+    let result = [...productsWithUI]
+
+    // Apply search
+    if (searchQuery.trim()) {
+      const lowerQuery = searchQuery.toLowerCase()
+      result = result.filter(
+        p =>
+          p.name.toLowerCase().includes(lowerQuery) ||
+          p.price.toLowerCase().includes(lowerQuery)
+      )
+    }
+
+    // Apply filter
+    if (filterType === 'Most Purchased') {
+      result = result.filter(p => p.mostPurchased)
+    } else if (filterType === 'Latest') {
+      result = result.filter(p => p.latest)
+    } else if (filterType === 'Low Price') {
+      result.sort((a, b) => {
+        const priceA = parseFloat(a.price.replace(/[^0-9.]/g, '')) || 0
+        const priceB = parseFloat(b.price.replace(/[^0-9.]/g, '')) || 0
+        return priceA - priceB
+      })
+    } else if (filterType === 'High Price') {
+      result.sort((a, b) => {
+        const priceA = parseFloat(a.price.replace(/[^0-9.]/g, '')) || 0
+        const priceB = parseFloat(b.price.replace(/[^0-9.]/g, '')) || 0
+        return priceB - priceA
+      })
+    }
+
+    setFilteredProducts(result)
+  }, [searchQuery, filterType, products])
 
   // Featured items to scroll endlessly
-  const featuredItems = [1,2,3]
+  const featuredItems = [1, 2, 3]
   const endlessFeaturedItems = Array.from({ length: 30 }, (_, i) => featuredItems[i % featuredItems.length])
 
-  // Names pool for Popular Near You
-  const productNamesPool = [
-    'Green Grams','Lemon','Avocado','Mangoes','Sorghum','Wheat','Kales','Yams',
-    'Arrowroots','Coriander','Herbs','Sardines','Chicken','Eggs','Beef','Milk',
-    'Simsim','Coconut','Maize','Cabbage','Millet','Beans','Carrots','Tumeric',
-    'Banana','Green Chili','Spinach','Rice','Barley',
-    'Cucumber','Tomatoes','Potatoes','Oranges','Broccoli','Watermelon','Peanuts','Lentils','Peas'
-  ]
-
-  // Generate unique products for endless vertical scroll
-  const endlessPopularItems: Product[] = Array.from({ length: 50 }, (_, i) => {
-    const name = productNamesPool[i % productNamesPool.length]
-    const basePrice = 50 + (i % 20) * 10
-    return {
-      name: name, 
-      price: `KES ${basePrice}/kg`,
-      mostPurchased: Math.random() < 0.5,
-      latest: Math.random() < 0.5
-    }
-  })
-
   // Add product to cart
-  const handleAddToCart = (product: Product) => {
-    addItem(product) // <-- update shared cart
-    setAddedToCart(prev => ({ ...prev, [product.name]: true })) // Mark as added in UI
+  const handleAddToCart = (product: ContextProduct) => {
+    addItem(product)
+    setAddedToCart(prev => ({ ...prev, [product.id]: true }))
   }
+
+  // Fetch notifications on mount
+  useEffect(() => {
+    fetchNotifications()
+  }, [])
+
+  const fetchNotifications = async () => {
+    try {
+      setNotificationLoading(true)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      if (error) {
+        console.error('Error fetching notifications:', error)
+        return
+      }
+
+      setNotificationList(data || [])
+      setUnreadCount((data || []).filter(n => !n.is_read).length)
+    } catch (error) {
+      console.error('Notification fetch error:', error)
+    } finally {
+      setNotificationLoading(false)
+    }
+  }
+
+  const markAsRead = async (notificationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', notificationId)
+
+      if (!error) {
+        setNotificationList(prev =>
+          prev.map(n => (n.id === notificationId ? { ...n, is_read: true } : n))
+        )
+        setUnreadCount(prev => Math.max(0, prev - 1))
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error)
+    }
+  }
+
+  const markAllAsRead = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', user.id)
+
+      if (!error) {
+        setNotificationList(prev => prev.map(n => ({ ...n, is_read: true })))
+        setUnreadCount(0)
+      }
+    } catch (error) {
+      console.error('Error marking all as read:', error)
+    }
+  }
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'security':
+        return { name: 'shield-checkmark', color: '#1976D2', bgColor: '#E3F2FD' }
+      case 'notice':
+        return { name: 'notifications', color: '#F57C00', bgColor: '#FFF3E0' }
+      case 'order':
+        return { name: 'receipt', color: '#2E7D32', bgColor: '#E8F5E9' }
+      case 'promo':
+        return { name: 'percent', color: '#FBC02D', bgColor: '#FFFDE7' }
+      default:
+        return { name: 'information-circle', color: '#666', bgColor: '#F5F5F5' }
+    }
+  }
+
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMins < 1) return 'Just now'
+    if (diffMins < 60) return `${diffMins}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    if (diffDays < 7) return `${diffDays}d ago`
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  const renderProductCard = ({ item }: { item: ProductWithUI }) => (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => {
+        const parentNav = navigation.getParent()
+        if (parentNav) {
+          parentNav.navigate('ProductDetail', {
+            product: {
+              ...item,
+              images: item.images || (item.image ? [item.image] : []),
+              seller: item.seller,
+              rating: item.rating,
+              review_count: item.review_count,
+            }
+          })
+        } else {
+          console.error('Parent navigator not found')
+        }
+      }}
+      activeOpacity={0.7}
+    >
+      <View style={styles.cardImg}>
+        {item.image ? (
+          <Image
+            source={{ uri: item.image }}
+            style={styles.productImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.placeholderImage}>
+            <Icon name="image-outline" size={40} color="#ccc" />
+          </View>
+        )}
+      </View>
+      <Text style={styles.cardTitle} numberOfLines={1}>{item.name}</Text>
+      <Text style={styles.price}>{item.price}</Text>
+      <TouchableOpacity
+        style={[styles.cartBtn, addedToCart[item.id] && { backgroundColor: ACCENT }]}
+        onPress={(e) => {
+          e.stopPropagation()
+          handleAddToCart(item)
+        }}
+        disabled={addedToCart[item.id]}
+      >
+        <Icon
+          name={addedToCart[item.id] ? "checkmark" : "cart-outline"}
+          size={16}
+          color="#fff"
+        />
+        <Text style={styles.cartText}> {addedToCart[item.id] ? 'Added' : 'Add'}</Text>
+      </TouchableOpacity>
+    </TouchableOpacity>
+  )
 
   return (
     <View style={styles.container}>
@@ -100,26 +286,36 @@ const HomeScreen: React.FC = () => {
         </View>
 
         <View style={styles.headerIcons}>
-          <TouchableOpacity 
-            style={styles.iconCircle} 
+          <TouchableOpacity
+            style={styles.iconCircle}
             onPress={() => setFavorites(!favorites)}
           >
-            <Icon 
-              name={favorites ? "heart" : "heart-outline"} 
-              size={20} 
-              color={favorites ? ACCENT : "#fff"} 
+            <Icon
+              name={favorites ? "heart" : "heart-outline"}
+              size={20}
+              color={favorites ? ACCENT : "#fff"}
             />
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={styles.iconCircle} 
-            onPress={() => setNotifications(!notifications)}
+          <TouchableOpacity
+            style={styles.iconCircle}
+            onPress={() => {
+              setShowNotificationsModal(true)
+              fetchNotifications()
+            }}
           >
-            <Icon 
-              name={notifications ? "notifications" : "notifications-outline"} 
-              size={20} 
-              color={notifications ? ACCENT : "#fff"} 
+            <Icon
+              name={unreadCount > 0 ? "notifications" : "notifications-outline"}
+              size={20}
+              color="#fff"
             />
+            {unreadCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -133,33 +329,44 @@ const HomeScreen: React.FC = () => {
               placeholder="Search fresh produce..."
               placeholderTextColor="#777"
               style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
             />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Icon name="close-circle" size={20} color="#777" />
+              </TouchableOpacity>
+            )}
           </View>
 
-          <TouchableOpacity 
-            style={[styles.filterBtn, filterActive && {backgroundColor:PRIMARY}]} 
+          <TouchableOpacity
+            style={[styles.filterBtn, filterActive && { backgroundColor: PRIMARY }]}
             onPress={() => setFilterActive(!filterActive)}
           >
-            <Icon 
-              name="options-outline" 
-              size={22} 
-              color="#fff" 
-            />
+            <Icon name="options-outline" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
 
         {/* FILTER OPTIONS */}
         {filterActive && (
           <View style={styles.filterOptions}>
-            <TouchableOpacity onPress={() => { setFilterType('Most Purchased'); setFilterActive(false) }}>
-              <Text style={styles.filterText}>Most Purchased</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => { setFilterType('Latest'); setFilterActive(false) }}>
-              <Text style={styles.filterText}>Latest in Market</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => { setFilterType('None'); setFilterActive(false) }}>
-              <Text style={styles.filterText}>Most Purchased & Latest</Text>
-            </TouchableOpacity>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <TouchableOpacity onPress={() => { setFilterType('None'); setFilterActive(false) }}>
+                <Text style={[styles.filterText, filterType === 'None' && { fontWeight: 'bold' }]}>All</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { setFilterType('Most Purchased'); setFilterActive(false) }}>
+                <Text style={[styles.filterText, filterType === 'Most Purchased' && { fontWeight: 'bold' }]}>Most Purchased</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { setFilterType('Latest'); setFilterActive(false) }}>
+                <Text style={[styles.filterText, filterType === 'Latest' && { fontWeight: 'bold' }]}>Latest</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { setFilterType('Low Price'); setFilterActive(false) }}>
+                <Text style={[styles.filterText, filterType === 'Low Price' && { fontWeight: 'bold' }]}>Low Price</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { setFilterType('High Price'); setFilterActive(false) }}>
+                <Text style={[styles.filterText, filterType === 'High Price' && { fontWeight: 'bold' }]}>High Price</Text>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         )}
 
@@ -172,9 +379,9 @@ const HomeScreen: React.FC = () => {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {(showAll ? allCategories : allCategories.slice(0,5)).map((cat, index) => (
-            <TouchableOpacity 
-              key={index} 
+          {(showAll ? allCategories : allCategories.slice(0, 5)).map((cat, index) => (
+            <TouchableOpacity
+              key={index}
               style={styles.category}
               onPress={() => navigation.navigate('Categories', { category: cat })}
             >
@@ -189,9 +396,9 @@ const HomeScreen: React.FC = () => {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {endlessFeaturedItems.map((item,index)=>( 
+          {endlessFeaturedItems.map((item, index) => (
             <View key={index} style={styles.featuredCard}>
-              <View style={styles.featuredImage}/>
+              <View style={styles.featuredImage} />
               <View style={styles.featuredOverlay}>
                 <Text style={styles.featuredTitle}>Fresh Harvest</Text>
                 <Text style={styles.featuredSubtitle}>Up to 20% off</Text>
@@ -200,42 +407,127 @@ const HomeScreen: React.FC = () => {
           ))}
         </ScrollView>
 
-        {/* POPULAR */}
+        {/* POPULAR - Now showing farmer's products */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Popular Near You</Text>
+          <Text style={styles.sectionTitle}>
+            {searchQuery ? `Search Results (${filteredProducts.length})` : 'Popular Near You'}
+          </Text>
         </View>
 
-        <View style={styles.grid}>
-          {endlessPopularItems.map((item,index)=>(
-            <TouchableOpacity
-              key={index}
-              style={styles.card}
-              onPress={() => navigation.navigate('ProductDetail', { product: item })}
-              activeOpacity={0.7}
-            >
-              <View style={styles.cardImg} />
-              <Text style={styles.cardTitle}>{item.name}</Text>
-              <Text style={styles.price}>{item.price}</Text>
-              <TouchableOpacity
-                style={[styles.cartBtn, addedToCart[item.name] && {backgroundColor: ACCENT}]}
-                onPress={(e) => {
-                  e.stopPropagation()
-                  handleAddToCart(item)
-                }}
-                disabled={addedToCart[item.name]}
-              >
-                <Icon
-                  name={addedToCart[item.name] ? "checkmark" : "cart-outline"}
-                  size={16}
-                  color="#fff"
-                />
-                <Text style={styles.cartText}> {addedToCart[item.name] ? 'Added' : 'Add'}</Text>
-              </TouchableOpacity>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={PRIMARY} />
+            <Text style={styles.loadingText}>Loading fresh products...</Text>
+          </View>
+        ) : filteredProducts.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Icon name="search-outline" size={64} color="#ccc" />
+            <Text style={styles.emptyText}>
+              {searchQuery ? `No products found for "${searchQuery}"` : 'No products available'}
+            </Text>
+            <Text style={styles.emptySubtext}>
+              {searchQuery ? 'Try a different search term' : 'Check back later for fresh produce'}
+            </Text>
+          </View>
+        ) : (
+          <View
+            key={`${filteredProducts.length}-${filterType}-${searchQuery}`}
+            style={styles.grid}
+          >
+            {filteredProducts.map((item, index) => (
+              <View key={item.id || index} style={{ width: '48%' }}>
+                {renderProductCard({ item })}
+              </View>
+            ))}
+          </View>
+        )}
 
       </ScrollView>
+
+      {/* NOTIFICATIONS MODAL */}
+      <Modal
+        visible={showNotificationsModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowNotificationsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Notifications</Text>
+                <Text style={styles.modalSubtitle}>
+                  {unreadCount} {unreadCount === 1 ? 'unread' : 'unread'} {notificationList.length === 0 ? '' : `of ${notificationList.length} total`}
+                </Text>
+              </View>
+              <View style={styles.modalHeaderActions}>
+                {unreadCount > 0 && (
+                  <TouchableOpacity onPress={markAllAsRead} style={styles.markAllBtn}>
+                    <Text style={styles.markAllText}>Mark all read</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={() => setShowNotificationsModal(false)}>
+                  <Icon name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {notificationLoading ? (
+              <View style={styles.loadingModalContainer}>
+                <ActivityIndicator size="large" color={PRIMARY} />
+                <Text style={styles.loadingModalText}>Loading notifications...</Text>
+              </View>
+            ) : notificationList.length === 0 ? (
+              <View style={styles.emptyNotifications}>
+                <Icon name="notifications-none" size={64} color="#ccc" />
+                <Text style={styles.emptyNotificationsTitle}>No Notifications</Text>
+                <Text style={styles.emptyNotificationsText}>
+                  You're all caught up! Check back here for security alerts, notices from farmers, and order updates.
+                </Text>
+              </View>
+            ) : (
+              <ScrollView style={styles.notificationsScroll} showsVerticalScrollIndicator={false}>
+                {notificationList.map((notification) => {
+                  const iconConfig = getNotificationIcon(notification.type)
+                  return (
+                    <TouchableOpacity
+                      key={notification.id}
+                      style={[
+                        styles.notificationItem,
+                        { backgroundColor: iconConfig.bgColor },
+                        notification.is_read && { opacity: 0.7 }
+                      ]}
+                      onPress={() => {
+                        if (!notification.is_read) {
+                          markAsRead(notification.id)
+                        }
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.notificationIconBox, { backgroundColor: iconConfig.color }]}>
+                        <Icon name={iconConfig.name} size={20} color="#fff" />
+                      </View>
+                      <View style={styles.notificationContent}>
+                        <View style={styles.notificationHeader}>
+                          <Text style={[styles.notificationTitle, !notification.is_read && styles.unreadTitle]}>
+                            {notification.title}
+                          </Text>
+                          {!notification.is_read && <View style={styles.unreadDot} />}
+                        </View>
+                        <Text style={styles.notificationMessage} numberOfLines={2}>
+                          {notification.message}
+                        </Text>
+                        <Text style={styles.notificationTime}>{formatTime(notification.created_at)}</Text>
+                      </View>
+                      <Icon name="chevron-forward" size={20} color="#999" />
+                    </TouchableOpacity>
+                  )
+                })}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }
@@ -243,33 +535,210 @@ const HomeScreen: React.FC = () => {
 export default HomeScreen
 
 const styles = StyleSheet.create({
-  container:{ flex:1, backgroundColor:LIGHT_BG },
-  header:{ backgroundColor:PRIMARY, padding:20, paddingTop:50, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderBottomLeftRadius:25, borderBottomRightRadius:25 },
-  greeting:{ color:'#C8E6C9', fontSize:14 },
-  customerName:{ color:'#fff', fontSize:22, fontWeight:'bold' },
-  headerIcons:{ flexDirection:'row', gap:10 },
-  iconCircle:{ backgroundColor:'rgba(255,255,255,0.2)', padding:8, borderRadius:20, marginLeft:10 },
-  searchRow:{ flexDirection:'row', paddingHorizontal:16, marginTop:20, marginBottom:10 },
-  searchBox:{ flex:1, flexDirection:'row', backgroundColor:'#fff', padding:12, borderRadius:15, alignItems:'center', elevation:3 },
-  searchInput:{ marginLeft:10, flex:1 },
-  filterBtn:{ backgroundColor:ACCENT, padding:14, borderRadius:15, marginLeft:10, justifyContent:'center', alignItems:'center', elevation:3 },
-  filterOptions:{ backgroundColor:'#E8F5E9', marginHorizontal:16, padding:10, borderRadius:10, marginBottom:10 },
-  filterText:{ fontSize:16, color:PRIMARY, marginVertical:5 },
-  sectionHeader:{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingHorizontal:16, marginTop:20, marginBottom:10 },
-  sectionTitle:{ fontSize:18, fontWeight:'bold', color:'#333' },
-  seeAll:{ color:ACCENT, fontWeight:'600' },
-  category:{ backgroundColor:'#E8F5E9', paddingVertical:8, paddingHorizontal:18, borderRadius:20, marginLeft:16, marginBottom:5 },
-  categoryText:{ color:PRIMARY, fontWeight:'600' },
-  featuredCard:{ marginLeft:16, borderRadius:20, overflow:'hidden' },
-  featuredImage:{ width:250, height:150, backgroundColor:'#A5D6A7' },
-  featuredOverlay:{ position:'absolute', bottom:15, left:15 },
-  featuredTitle:{ color:'#fff', fontSize:16, fontWeight:'bold' },
-  featuredSubtitle:{ color:'#fff' },
-  grid:{ flexDirection:'row', flexWrap:'wrap', justifyContent:'space-between', paddingHorizontal:16, marginTop:10 },
-  card:{ backgroundColor:'#fff', width:'48%', borderRadius:20, padding:12, marginBottom:15, elevation:4 },
-  cardImg:{ width:'100%', height:100, borderRadius:15, backgroundColor:'#E8F5E9', marginBottom:10 },
-  cardTitle:{ fontWeight:'bold', fontSize:14 },
-  price:{ color:ACCENT, fontWeight:'600', marginVertical:5 },
-  cartBtn:{ flexDirection:'row', backgroundColor:PRIMARY, padding:8, borderRadius:10, justifyContent:'center', alignItems:'center', marginTop:5 },
-  cartText:{ color:'#fff', fontWeight:'600' }
+  container: { flex: 1, backgroundColor: LIGHT_BG },
+  header: { backgroundColor: PRIMARY, padding: 20, paddingTop: 50, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomLeftRadius: 25, borderBottomRightRadius: 25 },
+  greeting: { color: '#C8E6C9', fontSize: 14 },
+  customerName: { color: '#fff', fontSize: 22, fontWeight: 'bold' },
+  headerIcons: { flexDirection: 'row', marginLeft: 10 },
+  iconCircle: { backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 20, marginLeft: 10 },
+  searchRow: { flexDirection: 'row', paddingHorizontal: 16, marginTop: 20, marginBottom: 10 },
+  searchBox: { flex: 1, flexDirection: 'row', backgroundColor: '#fff', padding: 12, borderRadius: 15, alignItems: 'center', elevation: 3, gap: 8 },
+  searchInput: { flex: 1 },
+  filterBtn: { backgroundColor: ACCENT, padding: 14, borderRadius: 15, marginLeft: 10, justifyContent: 'center', alignItems: 'center', elevation: 3 },
+  filterOptions: { backgroundColor: '#E8F5E9', marginHorizontal: 16, padding: 10, borderRadius: 10, marginBottom: 10 },
+  filterText: { fontSize: 14, color: PRIMARY, marginHorizontal: 8 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginTop: 20, marginBottom: 10 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
+  seeAll: { color: ACCENT, fontWeight: '600' },
+  category: { backgroundColor: '#E8F5E9', paddingVertical: 8, paddingHorizontal: 18, borderRadius: 20, marginLeft: 16, marginBottom: 5 },
+  categoryText: { color: PRIMARY, fontWeight: '600' },
+  featuredCard: { marginLeft: 16, borderRadius: 20, overflow: 'hidden' },
+  featuredImage: { width: 250, height: 150, backgroundColor: '#A5D6A7' },
+  featuredOverlay: { position: 'absolute', bottom: 15, left: 15 },
+  featuredTitle: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  featuredSubtitle: { color: '#fff' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 16, marginTop: 10, paddingBottom: 20 },
+  card: { backgroundColor: '#fff', width: '100%', borderRadius: 20, padding: 12, marginBottom: 15, elevation: 4 },
+  cardImg: { width: '100%', height: 120, borderRadius: 15, backgroundColor: '#E8F5E9', marginBottom: 10, overflow: 'hidden' },
+  productImage: { width: '100%', height: '100%', borderRadius: 15 },
+  placeholderImage: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', borderRadius: 15 },
+  cardTitle: { fontWeight: 'bold', fontSize: 14 },
+  price: { color: ACCENT, fontWeight: '600', marginVertical: 5 },
+  cartBtn: { flexDirection: 'row', backgroundColor: PRIMARY, padding: 8, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginTop: 5 },
+  cartText: { color: '#fff', fontWeight: '600' },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#999',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#aaa',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#FF5252',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+  },
+  notificationBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 4,
+  },
+  modalHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  markAllBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  markAllText: {
+    color: PRIMARY,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  loadingModalContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+  },
+  loadingModalText: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 16,
+  },
+  emptyNotifications: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+    paddingHorizontal: 20,
+  },
+  emptyNotificationsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#999',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptyNotificationsText: {
+    fontSize: 14,
+    color: '#aaa',
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  notificationsScroll: {
+    maxHeight: 400,
+  },
+  notificationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    marginHorizontal: 16,
+    marginVertical: 6,
+    borderRadius: 12,
+    gap: 12,
+  },
+  notificationIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notificationContent: {
+    flex: 1,
+  },
+  notificationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  notificationTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    flex: 1,
+  },
+  unreadTitle: {
+    fontWeight: '700',
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF5252',
+    marginLeft: 6,
+  },
+  notificationMessage: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 18,
+  },
+  notificationTime: {
+    fontSize: 11,
+    color: '#999',
+    marginTop: 4,
+  },
 })

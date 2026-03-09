@@ -13,6 +13,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -28,10 +29,11 @@ const RegisterScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<'customer' | 'farmer' | 'agrodealer'>('customer');
+  const [role, setRole] = useState<'customer' | 'farmer'>('customer');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const nameBorderAnim = useRef(new Animated.Value(0)).current;
@@ -135,8 +137,6 @@ const RegisterScreen = () => {
         navigation.replace('CustomerTabs');
       } else if (role === 'farmer') {
         navigation.replace('FarmerTabs');
-      } else if (role === 'agrodealer') {
-        navigation.replace('AgroTabs');
       } else {
         navigation.replace('CustomerTabs');
       }
@@ -152,9 +152,9 @@ const RegisterScreen = () => {
   };
 
   return (
-    <LinearGradient colors={['#e6f5e6', '#c8e6c9', '#a5d6a7']} style={{ flex: 1 }}>
+    <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={styles.container}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <Animated.View style={[styles.card, { opacity: fadeAnim }]}>
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.subtitle}>Join Farm Care and grow with confidence 🌱</Text>
@@ -240,20 +240,18 @@ const RegisterScreen = () => {
               </TouchableOpacity>
             </Animated.View>
 
-            {/* ROLE SELECTOR */}
-            <View style={styles.roleContainer}>
-              {(['customer', 'farmer', 'agrodealer'] as const).map((item) => (
-                <TouchableOpacity
-                  key={item}
-                  style={[styles.roleButton, role === item && styles.roleSelected]}
-                  onPress={() => setRole(item)}
-                >
-                  <Text style={[styles.roleText, role === item && { color: '#fff' }]}>
-                    {item.charAt(0).toUpperCase() + item.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {/* ROLE SELECTOR DROPDOWN */}
+            <TouchableOpacity
+              style={[styles.inputWrapper, styles.roleDropdown]}
+              onPress={() => setShowRoleDropdown(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="person-outline" size={22} color="#2e7d32" style={styles.icon} />
+              <Text style={[styles.roleDropdownText, role && styles.roleDropdownSelected]}>
+                {role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Role'}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color="#666" style={{ marginLeft: 'auto' }} />
+            </TouchableOpacity>
 
             {/* REGISTER BUTTON */}
             <TouchableOpacity
@@ -271,6 +269,65 @@ const RegisterScreen = () => {
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Role Dropdown Modal */}
+      <Modal
+        visible={showRoleDropdown}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRoleDropdown(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowRoleDropdown(false)}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Your Role</Text>
+              <TouchableOpacity onPress={() => setShowRoleDropdown(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.roleOptions}>
+              <TouchableOpacity
+                style={[styles.roleOption, role === 'customer' && styles.roleOptionSelected]}
+                onPress={() => {
+                  setRole('customer');
+                  setShowRoleDropdown(false);
+                }}
+              >
+                <Ionicons
+                  name={role === 'customer' ? 'radio-button-on' : 'radio-button-off'}
+                  size={24}
+                  color={role === 'customer' ? '#2e7d32' : '#666'}
+                />
+                <Text style={[styles.roleOptionText, role === 'customer' && styles.roleOptionTextSelected]}>
+                  Customer
+                </Text>
+                <Text style={styles.roleOptionDescription}>Buy fresh produce from local farmers</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.roleOption, role === 'farmer' && styles.roleOptionSelected]}
+                onPress={() => {
+                  setRole('farmer');
+                  setShowRoleDropdown(false);
+                }}
+              >
+                <Ionicons
+                  name={role === 'farmer' ? 'radio-button-on' : 'radio-button-off'}
+                  size={24}
+                  color={role === 'farmer' ? '#2e7d32' : '#666'}
+                />
+                <Text style={[styles.roleOptionText, role === 'farmer' && styles.roleOptionTextSelected]}>
+                  Farmer
+                </Text>
+                <Text style={styles.roleOptionDescription}>Sell your farm produce directly</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </LinearGradient>
   );
 };
@@ -279,7 +336,14 @@ export default RegisterScreen;
 
 // styles remain unchanged
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, justifyContent: 'center', padding: 20 },
+  container: { 
+    flex: 1,
+  },
+  scrollContent: { 
+    flexGrow: 1, 
+    justifyContent: 'center', 
+    padding: 20 
+  },
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 24,
@@ -304,6 +368,19 @@ const styles = StyleSheet.create({
   },
   icon: { marginRight: 12 },
   input: { flex: 1, fontSize: 15 },
+  roleDropdown: {
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+  },
+  roleDropdownText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#9e9e9e',
+  },
+  roleDropdownSelected: {
+    color: '#2e7d32',
+    fontWeight: '600',
+  },
   roleContainer: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 15 },
   roleButton: {
     flex: 1,
@@ -324,4 +401,63 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
   loginLink: { textAlign: 'center', marginTop: 18, color: '#2e7d32', fontWeight: '600' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '85%',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    maxHeight: '60%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1b5e20',
+  },
+  roleOptions: {
+    gap: 12,
+  },
+  roleOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#f5f9f5',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  roleOptionSelected: {
+    borderColor: '#2e7d32',
+    backgroundColor: '#e8f5e9',
+  },
+  roleOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginLeft: 12,
+    flex: 1,
+  },
+  roleOptionTextSelected: {
+    color: '#2e7d32',
+  },
+  roleOptionDescription: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 8,
+    flex: 2,
+  },
 });

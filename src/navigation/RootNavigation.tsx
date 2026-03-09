@@ -9,46 +9,35 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { supabase } from '../services/supabase';
 
 // Screens
-import SplashScreen from '../screens/auth/SplashScreen';
 import OnboardingScreen from '../screens/auth/OnboardingScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
-import InventoryScreen from '../screens/farmer/InventoryScreen';
-import AnalyticsScreen from '../screens/farmer/AnalyticsScreen';
 
 // Tab Navigators
 import CustomerTabs from './CustomerTabs';
 import FarmerTabs from './FarmerTabs';
-import AgroTabs from './AgroTabs';
 
 // ────────────────────────────────────────────────
 
 export type RootStackParamList = {
-  Splash: undefined;
   Onboarding: undefined;
   Login: undefined;
   RegisterScreen: undefined;
   ForgotPassword: undefined;
   CustomerTabs: undefined;
   FarmerTabs: undefined;
-  AgroTabs: undefined;
-  InventoryScreen: undefined;
-  AnalyticsScreen: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const RootNavigation = () => {
   const [isAppReady, setIsAppReady] = useState(false);
-  const [initialRoute, setInitialRoute] = useState<'Splash' | 'Login' | 'CustomerTabs' | 'FarmerTabs' | 'AgroTabs'>('Splash');
+  const [initialRoute, setInitialRoute] = useState<'Onboarding' | 'Login' | 'CustomerTabs' | 'FarmerTabs'>('Onboarding');
 
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Splash delay
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
         const { data: { session } } = await supabase.auth.getSession();
 
         if (session?.user) {
@@ -65,8 +54,6 @@ const RootNavigation = () => {
               setInitialRoute('CustomerTabs');
             } else if (role === 'farmer') {
               setInitialRoute('FarmerTabs');
-            } else if (role === 'agrodealer') {
-              setInitialRoute('AgroTabs');
             } else {
               setInitialRoute('Login'); // fallback
             }
@@ -102,8 +89,6 @@ const RootNavigation = () => {
           // For simplicity, we can reload or handle in screens
         } else if (role === 'farmer') {
           //
-        } else if (role === 'agrodealer') {
-          //
         }
       } else {
         // Logged out → go back to Login (you can use navigation ref)
@@ -129,7 +114,6 @@ const RootNavigation = () => {
         initialRouteName={initialRoute}
         screenOptions={{ headerShown: false }}
       >
-        <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="Onboarding" component={OnboardingScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="RegisterScreen" component={RegisterScreen} />
@@ -145,14 +129,6 @@ const RootNavigation = () => {
           component={FarmerTabs}
           options={{ gestureEnabled: false }}
         />
-        <Stack.Screen
-          name="AgroTabs"
-          component={AgroTabs}
-          options={{ gestureEnabled: false }}
-        />
-
-        <Stack.Screen name="InventoryScreen" component={InventoryScreen} />
-        <Stack.Screen name="AnalyticsScreen" component={AnalyticsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

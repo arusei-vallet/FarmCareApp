@@ -18,8 +18,8 @@ const Tab = createBottomTabNavigator()
 
 const CartTabIcon = ({ color, size }: { color: string; size: number }) => {
   const context = useContext(CartContext);
-  const cartItems = context?.cartItems || [];
-  const itemCount = cartItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
+  const cartItems = context?.cartItems ?? [];
+  const itemCount = Array.isArray(cartItems) ? cartItems.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) : 0;
 
   return (
     <View style={styles.tabIconContainer}>

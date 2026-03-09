@@ -21,9 +21,13 @@ import Ionicons from 'react-native-vector-icons/Ionicons'
 import { LinearGradient } from 'expo-linear-gradient'
 import * as ImagePicker from 'expo-image-picker'
 import { supabase } from '../../services/supabase'
+import PrivacySettingsScreen from './PrivacySettingsScreen'
+import HelpSupportScreen from './HelpSupportScreen'
 
 type RootStackParamList = {
   Onboarding: undefined
+  PrivacySettings: undefined
+  HelpSupport: undefined
 }
 
 type ProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -194,13 +198,13 @@ const ProfileScreen = () => {
     { icon: 'location-outline', label: 'Delivery Addresses', action: () => {} },
     { icon: 'card-outline', label: 'Payment Methods', action: () => {} },
     { icon: 'heart-outline', label: 'Favorites', action: () => {} },
-    { icon: 'chatbubble-outline', label: 'Help & Support', action: () => {} },
-    { icon: 'shield-outline', label: 'Privacy Policy', action: () => {} },
+    { icon: 'chatbubble-outline', label: 'Help & Support', action: () => navigation.navigate('HelpSupport') },
+    { icon: 'shield-outline', label: 'Privacy Policy', action: () => navigation.navigate('PrivacySettings') },
     { icon: 'document-text-outline', label: 'Terms of Service', action: () => {} },
   ]
 
   return (
-    <LinearGradient colors={['#e6f5e6', '#c8e6c9', '#a5d6a7']} style={styles.container}>
+    <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}

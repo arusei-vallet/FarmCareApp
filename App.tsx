@@ -21,18 +21,21 @@ import CheckoutScreen from './src/screens/customer/CheckoutScreen';
 // Farmer Tabs
 import FarmerTabs from './src/navigation/FarmerTabs';
 
-// Agrodealer Tabs
-import AgroTabs from './src/navigation/AgroTabs';
-
 // Auth Screens
-import SplashScreen from './src/screens/auth/SplashScreen';
 import OnboardingScreen from './src/screens/auth/OnboardingScreen';
 import LoginScreen from './src/screens/auth/LoginScreen';
 import RegisterScreen from './src/screens/auth/RegisterScreen';
 import ForgotPasswordScreen from './src/screens/auth/ForgotPasswordScreen';
 
+// Customer Profile & Settings
+import PrivacySettingsScreen from './src/screens/customer/PrivacySettingsScreen';
+import HelpSupportScreen from './src/screens/customer/HelpSupportScreen';
+
 // Cart context
 import { CartProvider } from './src/screens/customer/CartContext';
+
+// Product context
+import { ProductProvider } from './src/context/ProductContext';
 
 const Stack = createNativeStackNavigator();
 
@@ -40,14 +43,11 @@ const PRIMARY = '#1B5E20';
 
 export default function App() {
   const [isReady, setIsReady] = useState(false);
-  const [initialRoute, setInitialRoute] = useState('Splash');
+  const [initialRoute, setInitialRoute] = useState('Onboarding');
 
   useEffect(() => {
     const prepareApp = async () => {
       try {
-        // Small splash delay
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
         const { data: { session } } = await supabase.auth.getSession();
 
         if (session?.user) {
@@ -63,8 +63,6 @@ export default function App() {
             setInitialRoute('CustomerTabs');
           } else if (role === 'farmer') {
             setInitialRoute('FarmerTabs');
-          } else if (role === 'agrodealer') {
-            setInitialRoute('AgroTabs');
           } else {
             setInitialRoute('Login');
           }
@@ -97,8 +95,9 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <CartProvider>
-        <NavigationContainer>
+      <ProductProvider>
+        <CartProvider>
+          <NavigationContainer>
         <Stack.Navigator
           initialRouteName={initialRoute}
           screenOptions={{
@@ -108,7 +107,6 @@ export default function App() {
             headerTitleStyle: { fontWeight: 'bold' },
           }}
         >
-          <Stack.Screen name="Splash" component={SplashScreen} />
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="RegisterScreen" component={RegisterScreen} />
@@ -143,13 +141,24 @@ export default function App() {
           />
 
           <Stack.Screen
-            name="AgroTabs"
-            component={AgroTabs}
-            options={{ gestureEnabled: false }}
+            name="PrivacySettings"
+            component={PrivacySettingsScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+
+          <Stack.Screen
+            name="HelpSupport"
+            component={HelpSupportScreen}
+            options={{
+              headerShown: false,
+            }}
           />
         </Stack.Navigator>
       </NavigationContainer>
     </CartProvider>
+  </ProductProvider>
   </ErrorBoundary>
   );
 }
