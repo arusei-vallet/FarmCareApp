@@ -29,10 +29,11 @@ const BG = '#F4F8F2'
 
 const CustomerDashboard: React.FC = () => {
   const navigation = useNavigation<any>()
-  const { cartCount } = useCart()
+  const { cartCount, addItem } = useCart()
   const fadeAnim = useRef(new Animated.Value(0)).current
   
-  const [userName, setUserName] = useState<string>('Customer')
+  const [userName, setUserName] = useState<string>('')
+  const [userFullName, setUserFullName] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [favorites, setFavorites] = useState<string[]>([])
   const [notifications, setNotifications] = useState<any[]>([])
@@ -56,31 +57,36 @@ const CustomerDashboard: React.FC = () => {
 
       if (user) {
         console.log('Fetching profile for user:', user.id)
-        
+
         // Try to get user profile from users table
         const { data: profile, error: profileError } = await supabase
           .from('users')
-          .select('full_name')
+          .select('full_name, email')
           .eq('id', user.id)
           .maybeSingle()
 
         if (profileError) {
           console.log('Profile fetch error:', profileError.message, profileError.code)
         }
-        
+
         console.log('Profile data:', profile)
-        
+
         if (profile?.full_name) {
-          const firstName = profile.full_name.trim().split(' ')[0]
+          // Store full name for display
+          const fullName = profile.full_name.trim()
+          setUserFullName(fullName)
+          // Use first name for greeting
+          const firstName = fullName.split(' ')[0]
           console.log('Setting username to:', firstName)
           setUserName(firstName)
         } else {
           // Try getting email username as fallback
-          const email = user.email
+          const email = profile?.email || user.email
           if (email) {
             const emailName = email.split('@')[0]
             console.log('Using email as fallback:', emailName)
             setUserName(emailName)
+            setUserFullName(emailName)
           }
         }
       }
@@ -163,11 +169,23 @@ const CustomerDashboard: React.FC = () => {
   }
 
   const toggleFavorite = (productId: string) => {
-    setFavorites(prev => 
-      prev.includes(productId) 
+    setFavorites(prev =>
+      prev.includes(productId)
         ? prev.filter(id => id !== productId)
         : [...prev, productId]
     )
+  }
+
+  const handleAddToCart = (product: any) => {
+    addItem({
+      id: product.id,
+      name: product.title,
+      price: `KES ${product.price}`,
+      seller_id: product.seller_id,
+      unit: product.unit || 'kg',
+      image: product.image,
+    })
+    Alert.alert('Success', `${product.title} added to cart!`)
   }
 
   const handleNotificationPress = (notification: any) => {
@@ -274,6 +292,7 @@ const CustomerDashboard: React.FC = () => {
           rating: product.rating || 0,
           reviews: product.review_count || 0,
           seller: (product.users as any)?.full_name || 'Local Farmer',
+          seller_id: product.seller_id,
           image: imageUrl,
           images: product.images || [],
           description: product.description || '',
@@ -318,7 +337,9 @@ const CustomerDashboard: React.FC = () => {
         <Animated.View style={[styles.header, { opacity: fadeAnim }]}>
           <View>
             <Text style={styles.location}>Deliver to 📍 Nairobi</Text>
-            <Text style={styles.greeting}>{getGreeting()}, {loading ? '...' : userName} 👋</Text>
+            <Text style={styles.greeting}>
+              {getGreeting()}, {loading ? 'Loading...' : userName || 'Valued Customer'} 👋
+            </Text>
           </View>
 
           <View style={styles.headerIcons}>
@@ -425,7 +446,10 @@ const CustomerDashboard: React.FC = () => {
                   <Text style={styles.rating}>⭐ {item.rating}</Text>
                   <Text style={styles.price}>KES {item.price}/kg</Text>
                 </View>
-                <TouchableOpacity style={styles.addBtn}>
+                <TouchableOpacity 
+                  style={styles.addBtn}
+                  onPress={() => handleAddToCart(item)}
+                >
                   <Text style={styles.addText}>Add to Cart</Text>
                 </TouchableOpacity>
               </View>

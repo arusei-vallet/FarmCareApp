@@ -21,6 +21,8 @@
       "package": "com.farmcareexpo.app",
       "permissions": [
         "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "INTERNET",
         "ACCESS_NETWORK_STATE"
       ]
     },
@@ -36,6 +38,12 @@
       "supabaseProductsBucket": "products",
       "appName": "FarmCare",
       "version": "1.0.0"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f180a8fc-f1a6-4594-961d-14aa8bca6b10"
     }
   }
 }

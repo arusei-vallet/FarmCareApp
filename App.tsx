@@ -30,6 +30,11 @@ import ForgotPasswordScreen from './src/screens/auth/ForgotPasswordScreen';
 // Customer Profile & Settings
 import PrivacySettingsScreen from './src/screens/customer/PrivacySettingsScreen';
 import HelpSupportScreen from './src/screens/customer/HelpSupportScreen';
+import CouponsScreen from './src/screens/customer/CouponsScreen';
+import DeliveryAddressesScreen from './src/screens/customer/DeliveryAddressesScreen';
+import PaymentMethodsScreen from './src/screens/customer/PaymentMethodsScreen';
+import TermsOfServiceScreen from './src/screens/customer/TermsOfServiceScreen';
+import OrdersScreen from './src/screens/customer/OrdersScreen';
 
 // Cart context
 import { CartProvider } from './src/screens/customer/CartContext';

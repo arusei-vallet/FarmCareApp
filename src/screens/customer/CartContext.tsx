@@ -14,6 +14,9 @@ export interface Product {
   price: string;
   mostPurchased?: boolean;
   latest?: boolean;
+  seller_id?: string;
+  unit?: string;
+  image?: string;
 }
 
 /* =========================
@@ -21,6 +24,8 @@ export interface Product {
 ========================= */
 export interface CartItem extends Product {
   quantity: number;
+  seller_id?: string;
+  unit?: string;
 }
 
 /* =========================

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -8,22 +8,39 @@ import {
   StatusBar,
   Modal,
   TouchableWithoutFeedback,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import Ionicons from 'react-native-vector-icons/Ionicons'
 import { LinearGradient } from 'expo-linear-gradient'
+import { supabase } from '../../services/supabase'
 
 const PRIMARY = '#1B5E20'
 const ACCENT = '#2ECC71'
 
+interface OrderItem {
+  id: string
+  product_name: string
+  quantity: number
+  unit: string
+  unit_price: number
+  subtotal: number
+}
+
 interface Order {
   id: string
-  date: string
-  items: string[]
-  total: string
-  status: 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled'
-  deliveryAddress: string
-  paymentMethod: string
+  order_number: string
+  created_at: string
+  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
+  total_amount: number
+  subtotal: number
+  delivery_fee: number
+  payment_method: string
+  payment_status: string
+  delivery_address: string
+  delivery_instructions?: string
+  items: OrderItem[]
 }
 
 const OrdersScreen = () => {
@@ -32,79 +49,129 @@ const OrdersScreen = () => {
   const [filterModalVisible, setFilterModalVisible] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [detailModalVisible, setDetailModalVisible] = useState(false)
+  const [orders, setOrders] = useState<Order[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
-  const orders: Order[] = [
-    {
-      id: 'ORD-2024-001',
-      date: 'Feb 25, 2024 • 10:30 AM',
-      items: ['Fresh Tomatoes (2kg)', 'Red Onions (1kg)', 'Green Cabbage (1pc)'],
-      total: 'KES 340',
-      status: 'Delivered',
-      deliveryAddress: '123 Moi Avenue, Nairobi',
-      paymentMethod: 'M-Pesa',
-    },
-    {
-      id: 'ORD-2024-002',
-      date: 'Feb 24, 2024 • 3:45 PM',
-      items: ['Maize Flour (2kg)', 'Green Grams (1kg)', 'Fresh Milk (2L)'],
-      total: 'KES 520',
-      status: 'Shipped',
-      deliveryAddress: '456 Kenyatta Road, Mombasa',
-      paymentMethod: 'Card',
-    },
-    {
-      id: 'ORD-2024-003',
-      date: 'Feb 23, 2024 • 9:15 AM',
-      items: ['Fresh Avocado (4pcs)', 'Ripe Mangoes (2kg)', 'Bananas (1 bunch)'],
-      total: 'KES 280',
-      status: 'Processing',
-      deliveryAddress: '789 Uhuru Highway, Kisumu',
-      paymentMethod: 'M-Pesa',
-    },
-    {
-      id: 'ORD-2024-004',
-      date: 'Feb 22, 2024 • 2:00 PM',
-      items: ['Irish Potatoes (3kg)', 'Carrots (1kg)', 'Fresh Spinach (2 bunches)'],
-      total: 'KES 410',
-      status: 'Pending',
-      deliveryAddress: '321 Garden Estate, Nakuru',
-      paymentMethod: 'Cash on Delivery',
-    },
-    {
-      id: 'ORD-2024-005',
-      date: 'Feb 20, 2024 • 11:20 AM',
-      items: ['Chicken Whole (1pc)', 'Fresh Eggs (30pcs)', 'Fresh Milk (1L)'],
-      total: 'KES 920',
-      status: 'Delivered',
-      deliveryAddress: '567 Lake View, Eldoret',
-      paymentMethod: 'M-Pesa',
-    },
-  ]
+  useEffect(() => {
+    fetchOrders()
+  }, [])
 
-  const filters = ['All', 'Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled']
+  const fetchOrders = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        console.log('No user found')
+        setLoading(false)
+        return
+      }
+
+      // Fetch orders for this customer
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select(`
+          id,
+          order_number,
+          created_at,
+          status,
+          total_amount,
+          subtotal,
+          delivery_fee,
+          payment_method,
+          payment_status,
+          delivery_address,
+          order_items (
+            id,
+            product_name,
+            quantity,
+            unit,
+            unit_price,
+            subtotal
+          )
+        `)
+        .eq('customer_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (ordersError) {
+        console.error('Error fetching orders:', ordersError)
+        setLoading(false)
+        return
+      }
+
+      // Transform orders for display
+      const transformedOrders: Order[] = (ordersData || []).map(order => ({
+        ...order,
+        items: order.order_items || [],
+      }))
+
+      setOrders(transformedOrders)
+    } catch (error) {
+      console.error('Unexpected error fetching orders:', error)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  const onRefresh = () => {
+    setRefreshing(true)
+    fetchOrders()
+  }
 
   const filteredOrders = activeFilter === 'All' ? orders : orders.filter(o => o.status === activeFilter)
 
+  const filters = ['All', 'Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled']
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Delivered': return '#2E7D32'
-      case 'Processing': return '#1976D2'
-      case 'Shipped': return '#FF9800'
-      case 'Pending': return '#9E9E9E'
-      case 'Cancelled': return '#D32F2F'
+      case 'delivered': return '#2E7D32'
+      case 'processing': return '#1976D2'
+      case 'shipped': return '#FF9800'
+      case 'pending': return '#9E9E9E'
+      case 'cancelled': return '#D32F2F'
+      case 'confirmed': return '#1976D2'
       default: return '#9E9E9E'
     }
   }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'Delivered': return 'checkmark-circle'
-      case 'Processing': return 'settings'
-      case 'Shipped': return 'car'
-      case 'Pending': return 'time'
-      case 'Cancelled': return 'close-circle'
+      case 'delivered': return 'checkmark-circle'
+      case 'processing': return 'settings'
+      case 'shipped': return 'car'
+      case 'pending': return 'time'
+      case 'cancelled': return 'close-circle'
+      case 'confirmed': return 'checkmark-done-circle'
       default: return 'time'
     }
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const isToday = date.toDateString() === now.toDateString()
+    
+    const timeOptions: Intl.DateTimeFormatOptions = { 
+      hour: 'numeric', 
+      minute: 'numeric',
+      hour12: true 
+    }
+    const timeStr = date.toLocaleTimeString('en-US', timeOptions)
+    
+    if (isToday) {
+      return `Today • ${timeStr}`
+    }
+    
+    const dateOptions: Intl.DateTimeFormatOptions = {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    }
+    return date.toLocaleDateString('en-US', dateOptions)
+  }
+
+  const formatCurrency = (amount: number) => {
+    return `KES ${amount.toFixed(2)}`
   }
 
   const viewOrderDetails = (order: Order) => {
@@ -126,19 +193,19 @@ const OrdersScreen = () => {
     >
       <View style={styles.orderHeader}>
         <View style={styles.orderIdContainer}>
-          <Text style={styles.orderId}>{item.id}</Text>
-          <Text style={styles.orderDate}>{item.date}</Text>
+          <Text style={styles.orderId}>{item.order_number}</Text>
+          <Text style={styles.orderDate}>{formatDate(item.created_at)}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
           <Ionicons name={getStatusIcon(item.status)} size={14} color={getStatusColor(item.status)} />
-          <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>{item.status}</Text>
+          <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>{item.status.charAt(0).toUpperCase() + item.status.slice(1)}</Text>
         </View>
       </View>
 
       <View style={styles.orderItems}>
         {item.items.slice(0, 2).map((orderItem, index) => (
           <Text key={index} style={styles.orderItem} numberOfLines={1}>
-            • {orderItem}
+            • {orderItem.product_name} ({orderItem.quantity}{orderItem.unit})
           </Text>
         ))}
         {item.items.length > 2 && (
@@ -149,7 +216,7 @@ const OrdersScreen = () => {
       <View style={styles.orderFooter}>
         <View>
           <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalAmount}>{item.total}</Text>
+          <Text style={styles.totalAmount}>{formatCurrency(item.total_amount)}</Text>
         </View>
         <TouchableOpacity style={styles.detailsBtn} onPress={() => viewOrderDetails(item)}>
           <Text style={styles.detailsBtnText}>View Details</Text>
@@ -175,7 +242,12 @@ const OrdersScreen = () => {
       </View>
 
       {/* Orders List */}
-      {filteredOrders.length === 0 ? (
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={PRIMARY} />
+          <Text style={styles.loadingText}>Loading your orders...</Text>
+        </View>
+      ) : filteredOrders.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="receipt-outline" size={80} color="#ccc" />
           <Text style={styles.emptyText}>No orders found</Text>
@@ -192,6 +264,13 @@ const OrdersScreen = () => {
           renderItem={renderOrder}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.ordersList}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[PRIMARY]}
+            />
+          }
         />
       )}
 
@@ -257,18 +336,18 @@ const OrdersScreen = () => {
                 <View style={styles.detailSection}>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Order ID:</Text>
-                    <Text style={styles.detailValue}>{selectedOrder.id}</Text>
+                    <Text style={styles.detailValue}>{selectedOrder.order_number}</Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Date:</Text>
-                    <Text style={styles.detailValue}>{selectedOrder.date}</Text>
+                    <Text style={styles.detailValue}>{formatDate(selectedOrder.created_at)}</Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Status:</Text>
                     <View style={[styles.statusBadge, { backgroundColor: getStatusColor(selectedOrder.status) + '20' }]}>
                       <Ionicons name={getStatusIcon(selectedOrder.status)} size={16} color={getStatusColor(selectedOrder.status)} />
                       <Text style={[styles.statusText, { color: getStatusColor(selectedOrder.status) }]}>
-                        {selectedOrder.status}
+                        {selectedOrder.status.charAt(0).toUpperCase() + selectedOrder.status.slice(1)}
                       </Text>
                     </View>
                   </View>
@@ -277,7 +356,10 @@ const OrdersScreen = () => {
                 <View style={styles.detailSection}>
                   <Text style={styles.sectionTitle}>Items</Text>
                   {selectedOrder.items.map((item, index) => (
-                    <Text key={index} style={styles.itemText}>• {item}</Text>
+                    <View key={index} style={styles.itemRow}>
+                      <Text style={styles.itemText}>• {item.product_name}</Text>
+                      <Text style={styles.itemQuantity}>{item.quantity} {item.unit} × KES {item.unit_price.toFixed(2)}</Text>
+                    </View>
                   ))}
                 </View>
 
@@ -285,19 +367,41 @@ const OrdersScreen = () => {
                   <Text style={styles.sectionTitle}>Delivery</Text>
                   <View style={styles.detailRow}>
                     <Ionicons name="location-outline" size={18} color={PRIMARY} />
-                    <Text style={styles.detailValue}>{selectedOrder.deliveryAddress}</Text>
+                    <Text style={styles.detailValue}>{selectedOrder.delivery_address}</Text>
                   </View>
+                  {selectedOrder.delivery_instructions && (
+                    <View style={styles.detailRow}>
+                      <Ionicons name="call-outline" size={18} color={PRIMARY} />
+                      <Text style={styles.detailValue}>{selectedOrder.delivery_instructions}</Text>
+                    </View>
+                  )}
                 </View>
 
                 <View style={styles.detailSection}>
                   <Text style={styles.sectionTitle}>Payment</Text>
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Method:</Text>
-                    <Text style={styles.detailValue}>{selectedOrder.paymentMethod}</Text>
+                    <Text style={styles.detailValue}>{selectedOrder.payment_method}</Text>
                   </View>
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Total:</Text>
-                    <Text style={styles.totalAmountLarge}>{selectedOrder.total}</Text>
+                    <Text style={styles.detailLabel}>Status:</Text>
+                    <Text style={styles.detailValue}>{selectedOrder.payment_status?.charAt(0).toUpperCase() + selectedOrder.payment_status?.slice(1) || 'Pending'}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.priceSummary}>
+                  <View style={styles.priceRow}>
+                    <Text style={styles.priceLabel}>Subtotal</Text>
+                    <Text style={styles.priceValue}>{formatCurrency(selectedOrder.subtotal)}</Text>
+                  </View>
+                  <View style={styles.priceRow}>
+                    <Text style={styles.priceLabel}>Delivery Fee</Text>
+                    <Text style={styles.priceValue}>{formatCurrency(selectedOrder.delivery_fee)}</Text>
+                  </View>
+                  <View style={styles.priceDivider} />
+                  <View style={styles.priceRow}>
+                    <Text style={styles.totalLabel}>Total</Text>
+                    <Text style={styles.totalValue}>{formatCurrency(selectedOrder.total_amount)}</Text>
                   </View>
                 </View>
 
@@ -411,6 +515,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 100,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#888',
+    marginTop: 16,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -474,7 +589,35 @@ const styles = StyleSheet.create({
   },
   detailLabel: { fontSize: 14, color: '#888', width: 80 },
   detailValue: { fontSize: 14, color: '#333', flex: 1 },
-  itemText: { fontSize: 14, color: '#555', marginBottom: 6, marginLeft: 8 },
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+    marginLeft: 8,
+  },
+  itemText: { fontSize: 14, color: '#555', flex: 1 },
+  itemQuantity: { fontSize: 12, color: '#888' },
+  priceSummary: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  priceLabel: { fontSize: 14, color: '#666' },
+  priceValue: { fontSize: 14, fontWeight: '600', color: '#333' },
+  priceDivider: {
+    height: 1,
+    backgroundColor: '#e0e0e0',
+    marginVertical: 4,
+  },
+  totalValue: { fontSize: 18, fontWeight: '700', color: PRIMARY },
   totalAmountLarge: { fontSize: 20, fontWeight: '700', color: PRIMARY },
   detailActions: {
     flexDirection: 'row',

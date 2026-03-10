@@ -16,6 +16,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Ionicons from 'react-native-vector-icons/Ionicons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useCart, CartItem } from './CartContext'
+import { supabase } from '../../services/supabase'
 
 const PRIMARY = '#1B5E20'
 const ACCENT = '#2ECC71'
@@ -37,6 +38,7 @@ const CheckoutScreen = () => {
   const [phoneNumber, setPhoneNumber] = useState('')
   const [processing, setProcessing] = useState(false)
   const [successModal, setSuccessModal] = useState(false)
+  const [orderNumber, setOrderNumber] = useState('')
 
   const deliveryFee = total > 1000 ? 0 : 150
   const finalTotal = total + deliveryFee
@@ -71,23 +73,139 @@ const CheckoutScreen = () => {
       return
     }
 
+    if (items.length === 0) {
+      Alert.alert('Cart Empty', 'Your cart is empty')
+      return
+    }
+
     setProcessing(true)
 
-    // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    try {
+      // 1. Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      
+      if (userError || !user) {
+        Alert.alert('Error', 'Please login to place an order')
+        setProcessing(false)
+        return
+      }
 
-    // In a real app, you would:
-    // 1. Create order in database
-    // 2. Process payment via API
-    // 3. Save order details
+      // 2. Get user profile to ensure we have the customer_id
+      const { data: profile } = await supabase
+        .from('users')
+        .select('id, role')
+        .eq('id', user.id)
+        .single()
 
-    setProcessing(false)
-    setSuccessModal(true)
+      if (!profile || profile.role !== 'customer') {
+        Alert.alert('Error', 'Invalid user profile')
+        setProcessing(false)
+        return
+      }
 
-    // Clear cart after successful order
-    setTimeout(() => {
-      clearCart()
-    }, 2000)
+      const customerId = user.id
+
+      // 3. Group items by seller (each seller gets a separate order)
+      const itemsBySeller = items.reduce((acc, item) => {
+        const sellerId = item.seller_id || 'unknown'
+        if (!acc[sellerId]) {
+          acc[sellerId] = []
+        }
+        acc[sellerId].push(item)
+        return acc
+      }, {} as Record<string, CartItem[]>)
+
+      // 4. Create orders for each seller
+      const orderPromises = Object.entries(itemsBySeller).map(async ([sellerId, sellerItems]) => {
+        // Calculate subtotal for this seller's items
+        const sellerSubtotal = sellerItems.reduce((sum, item) => {
+          const price = parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0
+          return sum + price * item.quantity
+        }, 0)
+
+        // Proportionally allocate delivery fee
+        const totalItemsPrice = items.reduce((sum, item) => {
+          const price = parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0
+          return sum + price * item.quantity
+        }, 0)
+
+        const sellerDeliveryFee = totalItemsPrice > 0 ? (sellerSubtotal / totalItemsPrice) * deliveryFee : 0
+        const sellerTotal = sellerSubtotal + sellerDeliveryFee
+
+        // Create order
+        const { data: orderData, error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            customer_id: customerId,
+            seller_id: sellerId,
+            status: 'pending',
+            subtotal: sellerSubtotal,
+            delivery_fee: sellerDeliveryFee,
+            total_amount: sellerTotal,
+            payment_method: paymentMethod === 'mpesa' ? 'M-Pesa' : paymentMethod === 'card' ? 'Card' : 'Cash on Delivery',
+            payment_status: 'pending',
+            delivery_address: '123 Moi Avenue, Nairobi, Kenya', // TODO: Replace with actual address from user profile
+            delivery_instructions: `Phone: ${phoneNumber}`,
+            notes: `Payment: ${paymentMethod}`,
+          })
+          .select()
+          .single()
+
+        if (orderError) {
+          console.error('Order creation error:', orderError)
+          throw orderError
+        }
+
+        // 5. Create order items for this order
+        const orderItems = sellerItems.map(item => {
+          const price = parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0
+          return {
+            order_id: orderData.id,
+            product_id: item.id,
+            product_name: item.name,
+            quantity: item.quantity,
+            unit: item.unit || 'kg',
+            unit_price: price,
+            subtotal: price * item.quantity,
+          }
+        })
+
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .insert(orderItems)
+
+        if (itemsError) {
+          console.error('Order items creation error:', itemsError)
+          throw itemsError
+        }
+
+        return orderData
+      })
+
+      // Wait for all orders to be created
+      const orders = await Promise.all(orderPromises)
+      
+      // Get the first order number for display
+      if (orders.length > 0 && orders[0].order_number) {
+        setOrderNumber(orders[0].order_number)
+      }
+
+      // Simulate payment processing delay
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      setProcessing(false)
+      setSuccessModal(true)
+
+      // Clear cart after successful order
+      setTimeout(() => {
+        clearCart()
+      }, 500)
+
+    } catch (error: any) {
+      console.error('Order placement error:', error)
+      setProcessing(false)
+      Alert.alert('Error', 'Failed to place order: ' + error.message)
+    }
   }
 
   const handleSuccessContinue = () => {
@@ -291,7 +409,11 @@ const CheckoutScreen = () => {
             <Text style={styles.successText}>
               Your order has been placed successfully. You will receive a confirmation SMS shortly.
             </Text>
-            <Text style={styles.orderNumber}>Order #ORD-2024-{Math.floor(Math.random() * 10000)}</Text>
+            {orderNumber ? (
+              <Text style={styles.orderNumber}>Order #{orderNumber}</Text>
+            ) : (
+              <Text style={styles.orderNumber}>Order #ORD-2024-{Math.floor(Math.random() * 10000)}</Text>
+            )}
             <TouchableOpacity style={styles.continueBtn} onPress={handleSuccessContinue}>
               <Text style={styles.continueBtnText}>Continue Shopping</Text>
             </TouchableOpacity>

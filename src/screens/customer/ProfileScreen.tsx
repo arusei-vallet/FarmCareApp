@@ -15,7 +15,7 @@ import {
   Switch,
   ActivityIndicator,
 } from 'react-native'
-import { useNavigation } from '@react-navigation/native'
+import { useNavigation, useFocusEffect } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Ionicons from 'react-native-vector-icons/Ionicons'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -23,11 +23,19 @@ import * as ImagePicker from 'expo-image-picker'
 import { supabase } from '../../services/supabase'
 import PrivacySettingsScreen from './PrivacySettingsScreen'
 import HelpSupportScreen from './HelpSupportScreen'
+import CouponsScreen from './CouponsScreen'
+import DeliveryAddressesScreen from './DeliveryAddressesScreen'
+import PaymentMethodsScreen from './PaymentMethodsScreen'
+import TermsOfServiceScreen from './TermsOfServiceScreen'
 
 type RootStackParamList = {
   Onboarding: undefined
   PrivacySettings: undefined
   HelpSupport: undefined
+  Coupons: undefined
+  DeliveryAddresses: undefined
+  PaymentMethods: undefined
+  TermsOfService: undefined
 }
 
 type ProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -38,50 +46,149 @@ const ACCENT = '#2ECC71'
 const ProfileScreen = () => {
   const navigation = useNavigation<ProfileScreenNavigationProp>()
   const [loading, setLoading] = useState(false)
+  const [dataLoading, setDataLoading] = useState(true)
   const [modalVisible, setModalVisible] = useState(false)
   const [passwordModalVisible, setPasswordModalVisible] = useState(false)
   const [notificationsEnabled, setNotificationsEnabled] = useState(true)
   const [locationEnabled, setLocationEnabled] = useState(true)
 
   const [profile, setProfile] = useState({
-    name: 'John Kamau',
-    email: 'john.kamau@example.com',
-    phone: '+254 712 345 678',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=60',
-    address: '123 Moi Avenue, Nairobi',
-    memberSince: 'January 2024',
-    totalOrders: 24,
+    name: '',
+    email: '',
+    phone: '',
+    avatar: '',
+    address: '',
+    memberSince: '',
+    totalOrders: 0,
+    averageRating: 0,
+    totalCoupons: 0,
   })
 
   const [tempProfile, setTempProfile] = useState({ ...profile })
   const [passwords, setPasswords] = useState({ old: '', new: '', confirm: '' })
   const [passwordSuccess, setPasswordSuccess] = useState(false)
 
-  useEffect(() => {
-    loadUserProfile()
-  }, [])
+  // Reload profile when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUserProfile()
+    }, [])
+  )
 
   const loadUserProfile = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', user.id)
-          .single()
-
-        if (userData) {
-          setProfile({
-            ...profile,
-            name: userData.full_name || profile.name,
-            email: user.email || profile.email,
-            phone: userData.phone || profile.phone,
-          })
-        }
+      setDataLoading(true)
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError) {
+        console.log('Auth error getting user:', authError.message)
+        setDataLoading(false)
+        return
       }
-    } catch (error) {
-      console.log('Error loading profile:', error)
+      
+      if (!user) {
+        console.log('No authenticated user found')
+        setDataLoading(false)
+        return
+      }
+
+      console.log('Loading profile for user:', user.id, 'Email:', user.email)
+
+      // Fetch user profile data from public.users table
+      const { data: userData, error: profileError } = await supabase
+        .from('users')
+        .select('id, full_name, phone, email, avatar_url, address, created_at, role')
+        .eq('id', user.id)
+        .single()
+
+      if (profileError) {
+        console.log('Error fetching user profile:', profileError.message, 'Code:', profileError.code)
+      }
+
+      console.log('User profile data from database:', userData)
+
+      if (userData) {
+        // Fetch total orders
+        const { count: ordersCount, error: ordersError } = await supabase
+          .from('orders')
+          .select('*', { count: 'exact', head: true })
+          .eq('customer_id', user.id)
+
+        if (ordersError) {
+          console.log('Error counting orders:', ordersError.message)
+        }
+
+        // Fetch reviews given by user to calculate average rating
+        const { data: reviews, error: reviewsError } = await supabase
+          .from('reviews')
+          .select('rating')
+          .eq('customer_id', user.id)
+
+        if (reviewsError) {
+          console.log('Error fetching reviews:', reviewsError.message)
+        }
+
+        const averageRating = reviews && reviews.length > 0
+          ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+          : 0
+
+        // Fetch available coupons for the user
+        const { count: couponsCount, error: couponsError } = await supabase
+          .from('coupons')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('is_used', false)
+          .gte('expires_at', new Date().toISOString())
+
+        if (couponsError) {
+          console.log('Error counting coupons:', couponsError.message)
+        }
+
+        // Parse member since date
+        const memberSince = userData.created_at
+          ? new Date(userData.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+          : 'January 2024'
+
+        // Get the registered name - prioritize full_name from users table
+        // The name field contains the full name as entered during registration
+        const registeredName = userData.full_name 
+          ? userData.full_name.trim()
+          : (user.user_metadata?.full_name || user.email?.split('@')[0] || 'User')
+
+        console.log('Registered name from database:', userData.full_name)
+        console.log('Name from auth metadata:', user.user_metadata?.full_name)
+        console.log('Final display name:', registeredName)
+
+        setProfile({
+          name: registeredName,
+          email: userData.email || user.email || '',
+          phone: userData.phone || '',
+          avatar: userData.avatar_url || '',
+          address: userData.address || '',
+          memberSince,
+          totalOrders: ordersCount || 0,
+          averageRating: Math.round(averageRating * 10) / 10,
+          totalCoupons: couponsCount || 0,
+        })
+      } else {
+        console.log('No user profile found in database, using auth data only')
+        // Fallback if no profile exists in public.users
+        setProfile({
+          name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+          email: user.email || '',
+          phone: '',
+          avatar: '',
+          address: '',
+          memberSince: 'January 2024',
+          totalOrders: 0,
+          averageRating: 0,
+          totalCoupons: 0,
+        })
+      }
+    } catch (error: any) {
+      console.log('Unexpected error loading profile:', error.message)
+    } finally {
+      setDataLoading(false)
     }
   }
 
@@ -193,14 +300,15 @@ const ProfileScreen = () => {
     }
   }
 
-  const menuItems = [
-    { icon: 'receipt-outline', label: 'Order History', action: () => {} },
-    { icon: 'location-outline', label: 'Delivery Addresses', action: () => {} },
-    { icon: 'card-outline', label: 'Payment Methods', action: () => {} },
-    { icon: 'heart-outline', label: 'Favorites', action: () => {} },
-    { icon: 'chatbubble-outline', label: 'Help & Support', action: () => navigation.navigate('HelpSupport') },
-    { icon: 'shield-outline', label: 'Privacy Policy', action: () => navigation.navigate('PrivacySettings') },
-    { icon: 'document-text-outline', label: 'Terms of Service', action: () => {} },
+  const menuItems: { icon: string; label: string; action: () => void; badge?: number }[] = [
+    { icon: 'receipt-outline', label: 'Order History', action: () => navigation.navigate('Orders' as never), badge: 0 },
+    { icon: 'location-outline', label: 'Delivery Addresses', action: () => navigation.navigate('DeliveryAddresses' as never), badge: 0 },
+    { icon: 'card-outline', label: 'Payment Methods', action: () => navigation.navigate('PaymentMethods' as never), badge: 0 },
+    { icon: 'heart-outline', label: 'Favorites', action: () => Alert.alert('Coming Soon', 'Favorites feature will be available soon'), badge: 0 },
+    { icon: 'pricetag-outline', label: 'Coupons', action: () => navigation.navigate('Coupons' as never), badge: profile.totalCoupons },
+    { icon: 'chatbubble-outline', label: 'Help & Support', action: () => navigation.navigate('HelpSupport' as never), badge: 0 },
+    { icon: 'shield-outline', label: 'Privacy Policy', action: () => navigation.navigate('PrivacySettings' as never), badge: 0 },
+    { icon: 'document-text-outline', label: 'Terms of Service', action: () => navigation.navigate('TermsOfService' as never), badge: 0 },
   ]
 
   return (
@@ -224,34 +332,65 @@ const ProfileScreen = () => {
             </View>
           </TouchableOpacity>
 
-          <Text style={styles.name}>{profile.name}</Text>
-          <Text style={styles.email}>{profile.email}</Text>
+          {dataLoading ? (
+            <ActivityIndicator size="small" color={PRIMARY} />
+          ) : (
+            <>
+              <Text style={styles.name}>{profile.name || 'User'}</Text>
+              <Text style={styles.email}>{profile.email || 'No email'}</Text>
+            </>
+          )}
           <View style={styles.memberBadge}>
             <Ionicons name="calendar-outline" size={14} color={PRIMARY} />
             <Text style={styles.memberText}>Member since {profile.memberSince}</Text>
           </View>
+
+          {/* Refresh button */}
+          <TouchableOpacity onPress={loadUserProfile} style={styles.refreshBtn}>
+            <Ionicons name="refresh-outline" size={20} color={PRIMARY} />
+            <Text style={styles.refreshBtnText}>Refresh</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Stats */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statBox}>
-            <Ionicons name="bag-outline" size={24} color={PRIMARY} />
-            <Text style={styles.statValue}>{profile.totalOrders}</Text>
-            <Text style={styles.statLabel}>Total Orders</Text>
+        {dataLoading ? (
+          <View style={styles.statsContainer}>
+            <View style={styles.statBox}>
+              <ActivityIndicator size="small" color={PRIMARY} />
+              <Text style={styles.statLabel}>Loading...</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statBox}>
+              <ActivityIndicator size="small" color={PRIMARY} />
+              <Text style={styles.statLabel}>Loading...</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statBox}>
+              <ActivityIndicator size="small" color={PRIMARY} />
+              <Text style={styles.statLabel}>Loading...</Text>
+            </View>
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statBox}>
-            <Ionicons name="star-outline" size={24} color={PRIMARY} />
-            <Text style={styles.statValue}>4.8</Text>
-            <Text style={styles.statLabel}>Rating</Text>
+        ) : (
+          <View style={styles.statsContainer}>
+            <View style={styles.statBox}>
+              <Ionicons name="bag-outline" size={24} color={PRIMARY} />
+              <Text style={styles.statValue}>{profile.totalOrders}</Text>
+              <Text style={styles.statLabel}>Total Orders</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statBox}>
+              <Ionicons name="star-outline" size={24} color={PRIMARY} />
+              <Text style={styles.statValue}>{profile.averageRating > 0 ? profile.averageRating.toFixed(1) : 'N/A'}</Text>
+              <Text style={styles.statLabel}>Rating</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statBox}>
+              <Ionicons name="pricetag-outline" size={24} color={PRIMARY} />
+              <Text style={styles.statValue}>{profile.totalCoupons}</Text>
+              <Text style={styles.statLabel}>Coupons</Text>
+            </View>
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statBox}>
-            <Ionicons name="pricetag-outline" size={24} color={PRIMARY} />
-            <Text style={styles.statValue}>12</Text>
-            <Text style={styles.statLabel}>Coupons</Text>
-          </View>
-        </View>
+        )}
 
         {/* Settings */}
         <View style={styles.section}>
@@ -298,6 +437,11 @@ const ProfileScreen = () => {
                 <View style={styles.menuLeft}>
                   <Ionicons name={item.icon as any} size={22} color={PRIMARY} />
                   <Text style={styles.menuLabel}>{item.label}</Text>
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <View style={styles.menuBadge}>
+                      <Text style={styles.menuBadgeText}>{item.badge > 99 ? '99+' : item.badge}</Text>
+                    </View>
+                  )}
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#ccc" />
               </TouchableOpacity>
@@ -488,8 +632,24 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
     gap: 6,
+    marginBottom: 12,
   },
   memberText: { fontSize: 12, color: PRIMARY, fontWeight: '500' },
+  refreshBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: '#E8F5E9',
+    alignSelf: 'center',
+  },
+  refreshBtnText: {
+    color: PRIMARY,
+    fontWeight: '600',
+    fontSize: 13,
+  },
   statsContainer: {
     flexDirection: 'row',
     backgroundColor: '#fff',
@@ -544,6 +704,20 @@ const styles = StyleSheet.create({
   },
   menuLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   menuLabel: { fontSize: 15, color: '#333' },
+  menuBadge: {
+    backgroundColor: '#FF5722',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  menuBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
   actionsSection: {
     paddingHorizontal: 20,
     marginTop: 24,
