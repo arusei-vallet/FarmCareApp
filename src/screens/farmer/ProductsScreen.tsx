@@ -18,6 +18,7 @@ import {
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import Ionicons from '@expo/vector-icons/Ionicons'
+import MCIcon from 'react-native-vector-icons/MaterialCommunityIcons'
 import * as ImagePicker from 'expo-image-picker'
 import { useProducts, Product } from '../../context/ProductContext'
 
@@ -28,11 +29,16 @@ const ProductsScreen = () => {
   const { products, loading, addProduct, updateProduct, deleteProduct, refreshProducts } = useProducts()
 
   const [modalVisible, setModalVisible] = useState(false)
+  const [showCategorySelector, setShowCategorySelector] = useState(false)
+  const [showUnitSelector, setShowUnitSelector] = useState(false)
   const [newProduct, setNewProduct] = useState({
     name: '',
     price: '',
     stock: '',
     image: '',
+    category: '',
+    categoryId: '',
+    unit: 'kg',
   })
 
   const [editId, setEditId] = useState<string | null>(null)
@@ -41,6 +47,26 @@ const ProductsScreen = () => {
   const [imagePreviewVisible, setImagePreviewVisible] = useState(false)
   const [saving, setSaving] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
+
+  // Default categories
+  const categories = [
+    { id: 'vegetables', name: 'Vegetables', icon: '🥬', description: 'Fresh vegetables and greens' },
+    { id: 'grains', name: 'Grains', icon: '🌾', description: 'Cereals and grain crops' },
+    { id: 'legumes', name: 'Legumes', icon: '🫘', description: 'Beans, peas, and pulses' },
+    { id: 'fruits', name: 'Fruits', icon: '🍎', description: 'Fresh fruits and berries' },
+    { id: 'tubers', name: 'Tubers', icon: '🥔', description: 'Root vegetables and tubers' },
+    { id: 'herbs', name: 'Herbs', icon: '🌿', description: 'Culinary and medicinal herbs' },
+  ]
+
+  // Default units
+  const units = [
+    { id: 'kg', name: 'Kilogram', symbol: 'kg', icon: '⚖️' },
+    { id: 'g', name: 'Gram', symbol: 'g', icon: '🥄' },
+    { id: 'l', name: 'Liter', symbol: 'L', icon: '💧' },
+    { id: 'pcs', name: 'Pieces', symbol: 'pcs', icon: '🔢' },
+    { id: 'bundles', name: 'Bundles', symbol: 'bundles', icon: '📦' },
+    { id: 'bag', name: 'Bag', symbol: 'bag', icon: '🛍️' },
+  ]
 
   // Search functionality
   const [searchQuery, setSearchQuery] = useState('')
@@ -74,8 +100,10 @@ const ProductsScreen = () => {
   }, [searchQuery, products])
 
   const openAddModal = () => {
-    setNewProduct({ name: '', price: '', stock: '', image: '' })
+    setNewProduct({ name: '', price: '', stock: '', image: '', category: '', categoryId: '', unit: 'kg' })
     setEditId(null)
+    setShowCategorySelector(false)
+    setShowUnitSelector(false)
     setModalVisible(true)
   }
 
@@ -85,7 +113,12 @@ const ProductsScreen = () => {
       price: product.price,
       stock: product.stock.toString(),
       image: product.image,
+      category: product.category || 'Uncategorized',
+      categoryId: '',
+      unit: product.unit || 'kg',
     })
+    setShowCategorySelector(false)
+    setShowUnitSelector(false)
     setEditId(product.id)
     setModalVisible(true)
   }
@@ -111,12 +144,13 @@ const ProductsScreen = () => {
 
     const productData = {
       name: newProduct.name,
-      price: newProduct.price,
+      price: `KES ${newProduct.price}/${newProduct.unit}`,
       stock: Number(newProduct.stock),
       image: newProduct.image || 'https://via.placeholder.com/400',
       description: '',
-      category: 'Uncategorized',
+      category: newProduct.category || 'Uncategorized',
       is_available: true,
+      unit: newProduct.unit,
     }
 
     let result
@@ -130,8 +164,10 @@ const ProductsScreen = () => {
 
     if (result.success) {
       setModalVisible(false)
-      setNewProduct({ name: '', price: '', stock: '', image: '' })
+      setNewProduct({ name: '', price: '', stock: '', image: '', category: '', categoryId: '', unit: 'kg' })
       setEditId(null)
+      setShowCategorySelector(false)
+      setShowUnitSelector(false)
       
       // Show success with optional warning
       if (result.error) {
@@ -240,7 +276,9 @@ const ProductsScreen = () => {
         <View style={styles.productInfo}>
           <Text style={styles.productName}>{item.name}</Text>
           <Text style={styles.productPrice}>{item.price}</Text>
-          <Text style={styles.productStock}>Stock: {item.stock}</Text>
+          <Text style={styles.productStock}>
+            Stock: {item.stock} {item.unit || 'kg'}
+          </Text>
         </View>
         <View style={styles.actions}>
           <TouchableOpacity style={styles.actionBtn} onPress={() => openEditModal(item)}>
@@ -374,25 +412,189 @@ const ProductsScreen = () => {
                   <Text style={{ fontSize: 12, color: '#555', marginTop: 4 }}>Take a photo</Text>
                 </TouchableOpacity>
 
-                <TextInput
-                  style={styles.input}
-                  placeholder="Product Name"
-                  value={newProduct.name}
-                  onChangeText={text => setNewProduct({ ...newProduct, name: text })}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Price (e.g., KES 120/kg)"
-                  value={newProduct.price}
-                  onChangeText={text => setNewProduct({ ...newProduct, price: text })}
-                />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Stock Quantity"
-                  keyboardType="numeric"
-                  value={newProduct.stock}
-                  onChangeText={text => setNewProduct({ ...newProduct, stock: text })}
-                />
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Product Name</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="pricetag-outline" size={20} color="#1b5e20" />
+                    <TextInput
+                      style={styles.inputWithIcon}
+                      placeholder="e.g., Fresh Tomatoes"
+                      value={newProduct.name}
+                      onChangeText={text => setNewProduct({ ...newProduct, name: text })}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Category</Text>
+                  <TouchableOpacity
+                    style={[styles.categorySelector, showCategorySelector && styles.categorySelectorActive]}
+                    onPress={() => setShowCategorySelector(!showCategorySelector)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.categorySelectorLeft}>
+                      <MCIcon name="tag" size={20} color={showCategorySelector ? '#2e7d32' : '#9e9e9e'} />
+                      <Text
+                        style={[
+                          styles.categorySelectorText,
+                          !newProduct.category && styles.categorySelectorPlaceholder,
+                          showCategorySelector && styles.categorySelectorTextActive,
+                        ]}
+                      >
+                        {newProduct.category || 'Select a category'}
+                      </Text>
+                    </View>
+                    <MCIcon
+                      name={showCategorySelector ? 'chevron-up' : 'chevron-down'}
+                      size={20}
+                      color={showCategorySelector ? '#2e7d32' : '#9e9e9e'}
+                    />
+                  </TouchableOpacity>
+
+                  {/* Category Dropdown */}
+                  {showCategorySelector && (
+                    <View style={styles.categoryDropdown}>
+                      <ScrollView style={styles.categoryScroll} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                        {categories.map((cat) => (
+                          <TouchableOpacity
+                            key={cat.id}
+                            style={[
+                              styles.categoryOption,
+                              newProduct.categoryId === cat.id && styles.categoryOptionActive,
+                            ]}
+                            onPress={() => {
+                              setNewProduct({
+                                ...newProduct,
+                                category: cat.name,
+                                categoryId: cat.id,
+                              })
+                              setShowCategorySelector(false)
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <View style={styles.categoryOptionLeft}>
+                              <View style={styles.categoryIconBox}>
+                                <Text style={styles.categoryOptionIcon}>
+                                  {cat.icon || '📦'}
+                                </Text>
+                              </View>
+                              <View>
+                                <Text style={styles.categoryOptionName}>{cat.name}</Text>
+                                {cat.description && (
+                                  <Text style={styles.categoryOptionDesc} numberOfLines={2}>
+                                    {cat.description}
+                                  </Text>
+                                )}
+                              </View>
+                            </View>
+                            {newProduct.categoryId === cat.id && (
+                              <MCIcon name="check-circle" size={24} color="#2e7d32" />
+                            )}
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Unit of Measurement</Text>
+                  <TouchableOpacity
+                    style={[styles.unitSelector, showUnitSelector && styles.unitSelectorActive]}
+                    onPress={() => setShowUnitSelector(!showUnitSelector)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.unitSelectorLeft}>
+                      <MCIcon name="scale-balance" size={20} color={showUnitSelector ? '#2e7d32' : '#9e9e9e'} />
+                      <Text
+                        style={[
+                          styles.unitSelectorText,
+                          !newProduct.unit && styles.unitSelectorPlaceholder,
+                          showUnitSelector && styles.unitSelectorTextActive,
+                        ]}
+                      >
+                        {units.find(u => u.id === newProduct.unit)?.name || 'Select unit'}
+                      </Text>
+                    </View>
+                    <MCIcon
+                      name={showUnitSelector ? 'chevron-up' : 'chevron-down'}
+                      size={20}
+                      color={showUnitSelector ? '#2e7d32' : '#9e9e9e'}
+                    />
+                  </TouchableOpacity>
+
+                  {/* Unit Dropdown */}
+                  {showUnitSelector && (
+                    <View style={styles.unitDropdown}>
+                      <ScrollView style={styles.unitScroll} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                        {units.map((unit) => (
+                          <TouchableOpacity
+                            key={unit.id}
+                            style={[
+                              styles.unitOption,
+                              newProduct.unit === unit.id && styles.unitOptionActive,
+                            ]}
+                            onPress={() => {
+                              setNewProduct({
+                                ...newProduct,
+                                unit: unit.id,
+                              })
+                              setShowUnitSelector(false)
+                            }}
+                            activeOpacity={0.7}
+                          >
+                            <View style={styles.unitOptionLeft}>
+                              <View style={styles.unitIconBox}>
+                                <Text style={styles.unitOptionIcon}>
+                                  {unit.icon || '⚖️'}
+                                </Text>
+                              </View>
+                              <View>
+                                <Text style={styles.unitOptionName}>{unit.name}</Text>
+                                <Text style={styles.unitOptionSymbol}>{unit.symbol}</Text>
+                              </View>
+                            </View>
+                            {newProduct.unit === unit.id && (
+                              <MCIcon name="check-circle" size={24} color="#2e7d32" />
+                            )}
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Price per {units.find(u => u.id === newProduct.unit)?.symbol || 'unit'}</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="cash-outline" size={20} color="#1b5e20" />
+                    <TextInput
+                      style={styles.inputWithIcon}
+                      placeholder="e.g., 120"
+                      value={newProduct.price}
+                      onChangeText={text => setNewProduct({ ...newProduct, price: text })}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Quantity Available</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="cube-outline" size={20} color="#1b5e20" />
+                    <TextInput
+                      style={styles.inputWithIcon}
+                      placeholder="e.g., 50"
+                      keyboardType="numeric"
+                      value={newProduct.stock}
+                      onChangeText={text => setNewProduct({ ...newProduct, stock: text })}
+                    />
+                    <Text style={styles.stockUnitLabel}>{units.find(u => u.id === newProduct.unit)?.symbol || 'kg'}</Text>
+                  </View>
+                  <Text style={styles.stockUnitText}>
+                    {newProduct.stock ? `${newProduct.stock} ${units.find(u => u.id === newProduct.unit)?.symbol || 'kg'}` : 'Enter quantity'}
+                  </Text>
+                </View>
 
                 <TouchableOpacity
                   style={[styles.modalBtn, saving && { opacity: 0.6 }]}
@@ -451,7 +653,9 @@ const ProductsScreen = () => {
                       <Text style={styles.detailPrice}>{selectedProduct.price}</Text>
                       <View style={styles.detailRow}>
                         <Ionicons name="cube-outline" size={20} color="#1b5e20" />
-                        <Text style={styles.detailStock}>Stock: {selectedProduct.stock} units</Text>
+                        <Text style={styles.detailStock}>
+                          Stock: {selectedProduct.stock} {selectedProduct.unit || 'kg'}
+                        </Text>
                       </View>
                       <View style={styles.detailRow}>
                         <Ionicons name="barcode-outline" size={20} color="#1b5e20" />
@@ -578,6 +782,10 @@ const styles = StyleSheet.create({
   modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#00000066' },
   modalContent: { width: '90%', borderRadius: 16, padding: 20, elevation: 6 },
   modalTitle: { fontSize: 20, fontWeight: '800', color: '#1b5e20', marginBottom: 20, textAlign: 'center' },
+  inputGroup: { marginBottom: 16 },
+  inputLabel: { fontSize: 14, fontWeight: '700', color: '#1b5e20', marginBottom: 6, marginLeft: 4 },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f3fff4', borderRadius: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: '#c8e6c9' },
+  inputWithIcon: { flex: 1, padding: 12, fontSize: 15, color: '#333', marginLeft: 8 },
   input: { backgroundColor: '#f3fff4', padding: 12, borderRadius: 12, marginBottom: 12 },
   modalBtn: { backgroundColor: '#2e7d32', padding: 14, borderRadius: 12, alignItems: 'center' },
   modalBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
@@ -600,6 +808,187 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 12,
+  },
+  // Category selector styles
+  categorySelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f3fff4',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#c8e6c9',
+  },
+  categorySelectorActive: {
+    borderColor: '#2e7d32',
+    borderWidth: 2,
+    backgroundColor: '#e8f5e9',
+  },
+  categorySelectorLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  categorySelectorText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#333',
+    marginLeft: 10,
+  },
+  categorySelectorPlaceholder: {
+    color: '#9e9e9e',
+  },
+  categorySelectorTextActive: {
+    color: '#2e7d32',
+    fontWeight: '600',
+  },
+  categoryDropdown: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    marginTop: 8,
+    maxHeight: 200,
+    borderWidth: 1,
+    borderColor: '#c8e6c9',
+  },
+  categoryScroll: {
+    maxHeight: 200,
+  },
+  categoryOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  categoryOptionActive: {
+    backgroundColor: '#e8f5e9',
+  },
+  categoryOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  categoryIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f3fff4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  categoryOptionIcon: {
+    fontSize: 20,
+  },
+  categoryOptionName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1b5e20',
+    marginBottom: 2,
+  },
+  categoryOptionDesc: {
+    fontSize: 12,
+    color: '#888',
+  },
+  // Unit selector styles
+  unitSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f3fff4',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#c8e6c9',
+  },
+  unitSelectorActive: {
+    borderColor: '#2e7d32',
+    borderWidth: 2,
+    backgroundColor: '#e8f5e9',
+  },
+  unitSelectorLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  unitSelectorText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#333',
+    marginLeft: 10,
+  },
+  unitSelectorPlaceholder: {
+    color: '#9e9e9e',
+  },
+  unitSelectorTextActive: {
+    color: '#2e7d32',
+    fontWeight: '600',
+  },
+  unitDropdown: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    marginTop: 8,
+    maxHeight: 200,
+    borderWidth: 1,
+    borderColor: '#c8e6c9',
+  },
+  unitScroll: {
+    maxHeight: 200,
+  },
+  unitOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  unitOptionActive: {
+    backgroundColor: '#e8f5e9',
+  },
+  unitOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  unitIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f3fff4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  unitOptionIcon: {
+    fontSize: 20,
+  },
+  unitOptionName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1b5e20',
+    marginBottom: 2,
+  },
+  unitOptionSymbol: {
+    fontSize: 12,
+    color: '#888',
+  },
+  stockUnitLabel: {
+    fontSize: 18,
+    color: '#2e7d32',
+    marginRight: 8,
+  },
+  stockUnitText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+    marginLeft: 4,
   },
   detailModalContent: { width: '90%', borderRadius: 16, padding: 20, elevation: 6, maxHeight: '80%' },
   detailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },

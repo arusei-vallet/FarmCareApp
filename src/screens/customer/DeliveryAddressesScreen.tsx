@@ -11,6 +11,7 @@ import {
   TextInput,
   ActivityIndicator,
   Switch,
+  FlatList,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import Ionicons from 'react-native-vector-icons/Ionicons'
@@ -19,6 +20,57 @@ import { supabase } from '../../services/supabase'
 
 const PRIMARY = '#1B5E20'
 const ACCENT = '#2ECC71'
+
+// Kenya Counties Data with major locations
+const KENYA_COUNTIES = [
+  { name: 'Mombasa', locations: ['Mombasa Island', 'Mombasa CBD', 'Kilindini', 'Tudor', 'Nyali', 'Bamburi', 'Shanzu', 'Likoni', 'Changamwe'] },
+  { name: 'Kwale', locations: ['Kwale Town', 'Msambweni', 'Gazi', 'Lungalunga', 'Matuga'] },
+  { name: 'Kilifi', locations: ['Kilifi Town', 'Malindi', 'Watamu', 'Arabuko', 'Gede'] },
+  { name: 'Tana River', locations: ['Hola', 'Garsen', 'Madogo'] },
+  { name: 'Lamu', locations: ['Lamu Town', 'Shela', 'Manda'] },
+  { name: 'Taita Taveta', locations: ['Voi', 'Taveta', 'Wundanyi'] },
+  { name: 'Garissa', locations: ['Garissa Town', 'Dadaab'] },
+  { name: 'Wajir', locations: ['Wajir Town', 'Eldas'] },
+  { name: 'Mandera', locations: ['Mandera Town', 'El Wak'] },
+  { name: 'Marsabit', locations: ['Marsabit Town', 'Moyale'] },
+  { name: 'Isiolo', locations: ['Isiolo Town', 'Merti'] },
+  { name: 'Meru', locations: ['Meru Town', 'Maua'] },
+  { name: 'Tharaka Nithi', locations: ['Kathwana', 'Chuka'] },
+  { name: 'Embu', locations: ['Embu Town', 'Runyenjes'] },
+  { name: 'Kitui', locations: ['Kitui Town', 'Mwingi'] },
+  { name: 'Machakos', locations: ['Machakos Town', 'Athi River', 'Syokimau', 'Mulolongo'] },
+  { name: 'Makueni', locations: ['Wote', 'Kibwezi', 'Makindu'] },
+  { name: 'Nyandarua', locations: ['Ol Kalou', 'Nyahururu'] },
+  { name: 'Nyeri', locations: ['Nyeri Town', 'Othaya', 'Karatina'] },
+  { name: 'Kirinyaga', locations: ['Kerugoya', 'Sagana', 'Kutus'] },
+  { name: 'Muranga', locations: ['Muranga Town', 'Kangema'] },
+  { name: 'Kiambu', locations: ['Kiambu Town', 'Thika', 'Ruiru', 'Juja', 'Kikuyu', 'Limuru', 'Karuri', 'Gatundu'] },
+  { name: 'Turkana', locations: ['Lodwar', 'Kakuma'] },
+  { name: 'West Pokot', locations: ['Kapenguria'] },
+  { name: 'Samburu', locations: ['Maralal'] },
+  { name: 'Trans Nzoia', locations: ['Kitale'] },
+  { name: 'Uasin Gishu', locations: ['Eldoret'] },
+  { name: 'Elgeyo Marakwet', locations: ['Iten'] },
+  { name: 'Nandi', locations: ['Kapsabet', 'Nandi Hills'] },
+  { name: 'Baringo', locations: ['Kabarnet'] },
+  { name: 'Laikipia', locations: ['Nanyuki', 'Rumuruti'] },
+  { name: 'Nakuru', locations: ['Nakuru Town', 'Naivasha', 'Gilgil', 'Molo'] },
+  { name: 'Narok', locations: ['Narok Town'] },
+  { name: 'Kajiado', locations: ['Kajiado Town', 'Ngong', 'Ongata Rongai', 'Kitengela'] },
+  { name: 'Kericho', locations: ['Kericho Town'] },
+  { name: 'Bomet', locations: ['Bomet Town'] },
+  { name: 'Kakamega', locations: ['Kakamega Town', 'Mumias'] },
+  { name: 'Vihiga', locations: ['Vihiga Town'] },
+  { name: 'Bungoma', locations: ['Bungoma Town', 'Webuye'] },
+  { name: 'Busia', locations: ['Busia Town', 'Malaba'] },
+  { name: 'Siaya', locations: ['Siaya Town'] },
+  { name: 'Kisumu', locations: ['Kisumu City', 'Ahero', 'Maseno'] },
+  { name: 'Homa Bay', locations: ['Homa Bay Town'] },
+  { name: 'Migori', locations: ['Migori Town'] },
+  { name: 'Kisii', locations: ['Kisii Town'] },
+  { name: 'Nyamira', locations: ['Nyamira Town'] },
+  { name: 'Nairobi', locations: ['Nairobi CBD', 'Westlands', 'Kasarani', 'Roysambu', 'Kahawa', 'Ruaraka', 'Embakasi', 'Kamukunji', 'Starehe', 'Makadara', 'Langata', 'Kibra', 'Dagoretti', 'Karen', 'Kilimani', 'Kileleshwa', 'Lavington', 'South B', 'South C', 'Buruburu', 'Donholm', 'Utawala', 'Kayole'] },
+]
 
 interface DeliveryAddress {
   id: string
@@ -37,6 +89,13 @@ const DeliveryAddressesScreen = () => {
   const [loading, setLoading] = useState(true)
   const [modalVisible, setModalVisible] = useState(false)
   const [editingAddress, setEditingAddress] = useState<DeliveryAddress | null>(null)
+
+  // County and location selection state
+  const [countyModalVisible, setCountyModalVisible] = useState(false)
+  const [locationModalVisible, setLocationModalVisible] = useState(false)
+  const [searchCounty, setSearchCounty] = useState('')
+  const [selectedCounty, setSelectedCounty] = useState('')
+  const [selectedLocation, setSelectedLocation] = useState('')
 
   const [formData, setFormData] = useState({
     label: '',
@@ -84,6 +143,9 @@ const DeliveryAddressesScreen = () => {
       phone: '',
       is_default: false,
     })
+    setSelectedCounty('')
+    setSelectedLocation('')
+    setSearchCounty('')
     setModalVisible(true)
   }
 
@@ -98,6 +160,8 @@ const DeliveryAddressesScreen = () => {
       phone: address.phone,
       is_default: address.is_default,
     })
+    setSelectedCounty(address.county || '')
+    setSelectedLocation(address.city)
     setModalVisible(true)
   }
 
@@ -352,25 +416,38 @@ const DeliveryAddressesScreen = () => {
                 />
               </View>
 
-              <View style={styles.formRow}>
-                <View style={styles.formGroupHalf}>
-                  <Text style={styles.label}>City *</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Nairobi"
-                    value={formData.city}
-                    onChangeText={(text) => setFormData({ ...formData, city: text })}
-                  />
-                </View>
-                <View style={styles.formGroupHalf}>
-                  <Text style={styles.label}>County</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Nairobi"
-                    value={formData.county}
-                    onChangeText={(text) => setFormData({ ...formData, county: text })}
-                  />
-                </View>
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>County *</Text>
+                <TouchableOpacity
+                  style={styles.selectorInput}
+                  onPress={() => setCountyModalVisible(true)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={selectedCounty ? styles.selectorInputText : styles.selectorPlaceholder}>
+                    {selectedCounty || 'Select County'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color="#666" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Location/Town *</Text>
+                <TouchableOpacity
+                  style={styles.selectorInput}
+                  onPress={() => {
+                    if (!selectedCounty) {
+                      Alert.alert('Select County First', 'Please select a county first')
+                      return
+                    }
+                    setLocationModalVisible(true)
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={selectedLocation ? styles.selectorInputText : styles.selectorPlaceholder}>
+                    {selectedLocation || 'Select Location'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color="#666" />
+                </TouchableOpacity>
               </View>
 
               <View style={styles.formGroup}>
@@ -407,6 +484,90 @@ const DeliveryAddressesScreen = () => {
                 </TouchableOpacity>
               </View>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* County Selection Modal */}
+      <Modal visible={countyModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.selectionModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select County</Text>
+              <TouchableOpacity onPress={() => setCountyModalVisible(false)}>
+                <Ionicons name="close" size={28} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.searchContainer}>
+              <Ionicons name="search" size={20} color="#666" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search county..."
+                value={searchCounty}
+                onChangeText={setSearchCounty}
+              />
+            </View>
+
+            <FlatList
+              data={KENYA_COUNTIES.filter(c => 
+                c.name.toLowerCase().includes(searchCounty.toLowerCase())
+              )}
+              keyExtractor={(item) => item.name}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.selectionOption}
+                  onPress={() => {
+                    setSelectedCounty(item.name)
+                    setFormData({ ...formData, county: item.name })
+                    setSelectedLocation('')
+                    setCountyModalVisible(false)
+                    setSearchCounty('')
+                  }}
+                >
+                  <Text style={styles.selectionOptionText}>{item.name}</Text>
+                  {selectedCounty === item.name && (
+                    <Ionicons name="checkmark-circle" size={24} color={PRIMARY} />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Location Selection Modal */}
+      <Modal visible={locationModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.selectionModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {selectedCounty} - Select Location
+              </Text>
+              <TouchableOpacity onPress={() => setLocationModalVisible(false)}>
+                <Ionicons name="close" size={28} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <FlatList
+              data={KENYA_COUNTIES.find(c => c.name === selectedCounty)?.locations || []}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.selectionOption}
+                  onPress={() => {
+                    setSelectedLocation(item)
+                    setFormData({ ...formData, city: item })
+                    setLocationModalVisible(false)
+                  }}
+                >
+                  <Text style={styles.selectionOptionText}>{item}</Text>
+                  {selectedLocation === item && (
+                    <Ionicons name="checkmark-circle" size={24} color={PRIMARY} />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
           </View>
         </View>
       </Modal>
@@ -598,6 +759,62 @@ const styles = StyleSheet.create({
     fontSize: 15,
     borderWidth: 1,
     borderColor: '#e0e0e0',
+  },
+  selectorInput: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  selectorInputText: {
+    fontSize: 15,
+    color: '#333',
+  },
+  selectorPlaceholder: {
+    fontSize: 15,
+    color: '#999',
+  },
+  selectionModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+    paddingBottom: 30,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    fontSize: 15,
+  },
+  selectionOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  selectionOptionText: {
+    fontSize: 15,
+    color: '#333',
+    flex: 1,
   },
   switchRow: {
     flexDirection: 'row',
