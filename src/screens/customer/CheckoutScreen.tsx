@@ -62,7 +62,7 @@ const KENYA_COUNTIES = [
   { name: 'Kericho', locations: ['Kericho Town'] },
   { name: 'Bomet', locations: ['Bomet Town'] },
   { name: 'Kakamega', locations: ['Kakamega Town', 'Mumias'] },
-  { name: 'Vihiga', locations: ['Vihiga Town'] },
+  { name: 'Vihiga', locations: ['Vihiga Town', 'Mbale', 'Hamisi', 'Luanda', 'Emuhaya', 'Mumias West', 'Wodanga', 'Lyaduywa', 'Izawa', 'Shirere', 'Tsintsuta', 'Lugari', 'Matungu'] },
   { name: 'Bungoma', locations: ['Bungoma Town', 'Webuye'] },
   { name: 'Busia', locations: ['Busia Town', 'Malaba'] },
   { name: 'Siaya', locations: ['Siaya Town'] },
@@ -128,7 +128,6 @@ const CheckoutScreen = () => {
   const [newAddressData, setNewAddressData] = useState({
     label: '',
     address_line1: '',
-    address_line2: '',
     county: '',
     location: '',
     phone: '',
@@ -249,7 +248,6 @@ const CheckoutScreen = () => {
           customer_id: user.id,
           label: newAddressData.label,
           address_line1: newAddressData.address_line1,
-          address_line2: newAddressData.address_line2 || null,
           city: newAddressData.location,
           county: newAddressData.county,
           phone: newAddressData.phone,
@@ -264,7 +262,6 @@ const CheckoutScreen = () => {
       setNewAddressData({
         label: '',
         address_line1: '',
-        address_line2: '',
         county: '',
         location: '',
         phone: '',
@@ -1177,16 +1174,6 @@ const CheckoutScreen = () => {
                   placeholder="Street address, building number"
                   value={newAddressData.address_line1}
                   onChangeText={(text) => setNewAddressData({ ...newAddressData, address_line1: text })}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Address Line 2</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Apartment, suite, floor (optional)"
-                  value={newAddressData.address_line2}
-                  onChangeText={(text) => setNewAddressData({ ...newAddressData, address_line2: text })}
                 />
               </View>
 

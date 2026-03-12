@@ -60,7 +60,7 @@ const KENYA_COUNTIES = [
   { name: 'Kericho', locations: ['Kericho Town'] },
   { name: 'Bomet', locations: ['Bomet Town'] },
   { name: 'Kakamega', locations: ['Kakamega Town', 'Mumias'] },
-  { name: 'Vihiga', locations: ['Vihiga Town'] },
+  { name: 'Vihiga', locations: ['Vihiga Town', 'Mbale', 'Hamisi', 'Luanda', 'Emuhaya', 'Mumias West', 'Wodanga', 'Lyaduywa', 'Izawa', 'Shirere', 'Tsintsuta', 'Lugari', 'Matungu'] },
   { name: 'Bungoma', locations: ['Bungoma Town', 'Webuye'] },
   { name: 'Busia', locations: ['Busia Town', 'Malaba'] },
   { name: 'Siaya', locations: ['Siaya Town'] },
@@ -100,7 +100,6 @@ const DeliveryAddressesScreen = () => {
   const [formData, setFormData] = useState({
     label: '',
     address_line1: '',
-    address_line2: '',
     city: '',
     county: '',
     phone: '',
@@ -137,7 +136,6 @@ const DeliveryAddressesScreen = () => {
     setFormData({
       label: '',
       address_line1: '',
-      address_line2: '',
       city: '',
       county: '',
       phone: '',
@@ -154,7 +152,6 @@ const DeliveryAddressesScreen = () => {
     setFormData({
       label: address.label,
       address_line1: address.address_line1,
-      address_line2: address.address_line2 || '',
       city: address.city,
       county: address.county || '',
       phone: address.phone,
@@ -182,7 +179,6 @@ const DeliveryAddressesScreen = () => {
           .update({
             label: formData.label,
             address_line1: formData.address_line1,
-            address_line2: formData.address_line2 || null,
             city: formData.city,
             county: formData.county || null,
             phone: formData.phone,
@@ -200,7 +196,6 @@ const DeliveryAddressesScreen = () => {
             customer_id: user.id,
             label: formData.label,
             address_line1: formData.address_line1,
-            address_line2: formData.address_line2 || null,
             city: formData.city,
             county: formData.county || null,
             phone: formData.phone,
@@ -403,16 +398,6 @@ const DeliveryAddressesScreen = () => {
                   placeholder="Street address, building number"
                   value={formData.address_line1}
                   onChangeText={(text) => setFormData({ ...formData, address_line1: text })}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Address Line 2</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Apartment, suite, floor (optional)"
-                  value={formData.address_line2}
-                  onChangeText={(text) => setFormData({ ...formData, address_line2: text })}
                 />
               </View>
 
