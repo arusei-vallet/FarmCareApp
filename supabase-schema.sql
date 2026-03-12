@@ -276,6 +276,51 @@ CREATE TABLE IF NOT EXISTS public.payments (
 CREATE INDEX IF NOT EXISTS idx_payments_order ON public.payments(order_id);
 
 -- ============================================================
+-- 13. M-PESA TRANSACTIONS TABLE
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.mpesa_transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    order_id UUID NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+    customer_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    checkout_request_id TEXT UNIQUE,
+    merchant_request_id TEXT,
+    phone_number TEXT NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    account_reference TEXT,
+    transaction_desc TEXT,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed', 'cancelled')),
+    result_code TEXT,
+    result_desc TEXT,
+    mpesa_receipt_number TEXT,
+    transaction_date TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+);
+
+CREATE INDEX IF NOT EXISTS idx_mpesa_order ON public.mpesa_transactions(order_id);
+CREATE INDEX IF NOT EXISTS idx_mpesa_customer ON public.mpesa_transactions(customer_id);
+CREATE INDEX IF NOT EXISTS idx_mpesa_checkout_request ON public.mpesa_transactions(checkout_request_id);
+
+-- Trigger for mpesa_transactions updated_at
+CREATE TRIGGER update_mpesa_transactions_updated_at BEFORE UPDATE ON public.mpesa_transactions
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================
+-- 14. SAVED CARDS TABLE
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.saved_cards (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    customer_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    card_last_four TEXT NOT NULL,
+    card_brand TEXT NOT NULL,
+    card_exp_month INTEGER NOT NULL,
+    card_exp_year INTEGER NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+);
+
+CREATE INDEX IF NOT EXISTS idx_saved_cards_customer ON public.saved_cards(customer_id);
+
+-- ============================================================
 -- FUNCTIONS & TRIGGERS
 -- ============================================================
 
@@ -550,6 +595,47 @@ CREATE POLICY "system_insert_payments" ON public.payments
     FOR INSERT
     TO authenticated
     WITH CHECK (true);
+
+-- ============================================================
+-- M-PESA TRANSACTIONS POLICIES
+-- ============================================================
+
+-- View M-Pesa transactions for own orders
+CREATE POLICY "mpesa_view_own" ON public.mpesa_transactions
+    FOR SELECT
+    TO authenticated
+    USING (
+        auth.uid()::TEXT = customer_id::TEXT
+        OR EXISTS (
+            SELECT 1 FROM public.orders
+            WHERE orders.id = mpesa_transactions.order_id
+            AND orders.seller_id::TEXT = auth.uid()::TEXT
+        )
+    );
+
+-- System can insert M-Pesa transactions (via service role)
+CREATE POLICY "system_insert_mpesa" ON public.mpesa_transactions
+    FOR INSERT
+    TO authenticated
+    WITH CHECK (true);
+
+-- System can update M-Pesa transactions (via service role)
+CREATE POLICY "system_update_mpesa" ON public.mpesa_transactions
+    FOR UPDATE
+    TO authenticated
+    USING (true)
+    WITH CHECK (true);
+
+-- ============================================================
+-- SAVED CARDS POLICIES
+-- ============================================================
+
+-- Users can manage their own saved cards
+CREATE POLICY "users_manage_saved_cards" ON public.saved_cards
+    FOR ALL
+    TO authenticated
+    USING (auth.uid()::TEXT = customer_id::TEXT)
+    WITH CHECK (auth.uid()::TEXT = customer_id::TEXT);
 
 -- ============================================================
 -- HELPER FUNCTION: Create user profile
