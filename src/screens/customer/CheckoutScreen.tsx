@@ -44,7 +44,8 @@ const CheckoutScreen = () => {
   const route = useRoute<CheckoutScreenRouteProp>()
   const { clearCart } = useCart()
 
-  const { total, items } = route.params || { total: 0, items: [] }
+  const { total, items } = route.params ?? { total: 0, items: [] }
+  const itemsArray: CartItem[] = Array.isArray(items) ? items : []
   const [paymentMethod, setPaymentMethod] = useState<'mpesa' | 'card' | 'cod'>('mpesa')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [processing, setProcessing] = useState(false)
@@ -68,7 +69,7 @@ const CheckoutScreen = () => {
   const [stkPollingInterval, setStkPollingInterval] = useState<NodeJS.Timeout | null>(null)
 
   // Calculate subtotal from items (product prices only)
-  const subtotal = items.reduce((sum, item) => {
+  const subtotal = itemsArray.reduce((sum, item) => {
     const price = parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0
     return sum + price * item.quantity
   }, 0)
@@ -351,7 +352,7 @@ const CheckoutScreen = () => {
       }
     }
 
-    if (items.length === 0) {
+    if (itemsArray.length === 0) {
       Alert.alert('Cart Empty', 'Your cart is empty')
       return
     }
@@ -384,7 +385,7 @@ const CheckoutScreen = () => {
       const customerId = user.id
 
       // 3. Group items by seller (each seller gets a separate order)
-      const itemsBySeller = items.reduce((acc, item) => {
+      const itemsBySeller = itemsArray.reduce((acc, item) => {
         const sellerId = item.seller_id || 'unknown'
         if (!acc[sellerId]) {
           acc[sellerId] = []
@@ -549,7 +550,7 @@ const CheckoutScreen = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Order Summary</Text>
           <View style={styles.summaryCard}>
-            {items.slice(0, 3).map((item, index) => (
+            {itemsArray.slice(0, 3).map((item, index) => (
               <View key={index} style={styles.summaryItem}>
                 <View style={styles.summaryItemLeft}>
                   <View style={styles.itemIcon}>
@@ -565,8 +566,8 @@ const CheckoutScreen = () => {
                 </Text>
               </View>
             ))}
-            {items.length > 3 && (
-              <Text style={styles.moreItems}>+ {items.length - 3} more items</Text>
+            {itemsArray.length > 3 && (
+              <Text style={styles.moreItems}>+ {itemsArray.length - 3} more items</Text>
             )}
           </View>
         </View>
@@ -880,27 +881,6 @@ const CheckoutScreen = () => {
                 <Text style={styles.orderNumber}>Order #{orderNumber}</Text>
               ) : (
                 <Text style={styles.orderNumber}>Order #ORD-2024-{Math.floor(Math.random() * 10000)}</Text>
-              )}
-
-              {/* Delivery Address Card */}
-              {selectedAddress && (
-                <View style={styles.deliveryAddressCard}>
-                  <View style={styles.deliveryAddressHeader}>
-                    <Ionicons name="location" size={20} color={PRIMARY} />
-                    <Text style={styles.deliveryAddressTitle}>Delivery Address</Text>
-                  </View>
-                  <View style={styles.deliveryAddressContent}>
-                    <Text style={styles.deliveryAddressLabel}>{selectedAddress.label}</Text>
-                    <Text style={styles.deliveryAddressText}>
-                      {selectedAddress.city}
-                      {selectedAddress.county ? `, ${selectedAddress.county}` : ''}
-                    </Text>
-                    <View style={styles.deliveryAddressPhone}>
-                      <Ionicons name="call" size={14} color="#666" />
-                      <Text style={styles.deliveryAddressPhoneText}>{selectedAddress.phone}</Text>
-                    </View>
-                  </View>
-                </View>
               )}
 
               <TouchableOpacity style={styles.continueBtn} onPress={handleSuccessContinue}>
@@ -1414,48 +1394,6 @@ const styles = StyleSheet.create({
     color: PRIMARY,
     marginBottom: 16,
     fontFamily: 'monospace',
-  },
-  deliveryAddressCard: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    padding: 16,
-    width: '100%',
-    marginBottom: 20,
-  },
-  deliveryAddressHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 10,
-  },
-  deliveryAddressTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PRIMARY,
-  },
-  deliveryAddressContent: {
-    gap: 4,
-  },
-  deliveryAddressLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 2,
-  },
-  deliveryAddressText: {
-    fontSize: 13,
-    color: '#666',
-    lineHeight: 18,
-  },
-  deliveryAddressPhone: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-  },
-  deliveryAddressPhoneText: {
-    fontSize: 13,
-    color: '#666',
   },
   continueBtn: {
     backgroundColor: PRIMARY,
