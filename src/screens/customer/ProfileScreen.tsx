@@ -534,9 +534,9 @@ const ProfileScreen = () => {
   return (
     <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} stickyHeaderIndices={[0, 1, 2]}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={styles.headerSticky}>
           <Text style={styles.headerTitle}>Profile</Text>
           <TouchableOpacity onPress={openEditModal}>
             <Ionicons name="create-outline" size={24} color={PRIMARY} />
@@ -544,7 +544,7 @@ const ProfileScreen = () => {
         </View>
 
         {/* Profile Card */}
-        <View style={styles.profileCard}>
+        <View style={styles.profileCardSticky}>
           <TouchableOpacity onPress={pickAvatar} style={styles.avatarContainer}>
             <Image source={{ uri: profile.avatar }} style={styles.avatar} />
             <View style={styles.cameraIcon}>
@@ -564,14 +564,14 @@ const ProfileScreen = () => {
 
         {/* Stats */}
         {dataLoading ? (
-          <View style={styles.statsContainer}>
+          <View style={styles.statsContainerSticky}>
             <View style={styles.statBox}>
               <ActivityIndicator size="small" color={PRIMARY} />
               <Text style={styles.statLabel}>Loading...</Text>
             </View>
           </View>
         ) : (
-          <View style={styles.statsContainer}>
+          <View style={styles.statsContainerSticky}>
             <View style={styles.statBox}>
               <Ionicons name="bag-outline" size={24} color={PRIMARY} />
               <Text style={styles.statValue}>{profile.totalOrders}</Text>
@@ -1024,16 +1024,17 @@ export default ProfileScreen
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
+  headerSticky: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 16,
+    backgroundColor: '#f5f9f5',
   },
   headerTitle: { fontSize: 28, fontWeight: '700', color: PRIMARY },
-  profileCard: {
+  profileCardSticky: {
     backgroundColor: '#fff',
     marginHorizontal: 20,
     borderRadius: 20,
@@ -1065,7 +1066,7 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 22, fontWeight: '700', color: '#333', marginBottom: 4 },
   email: { fontSize: 14, color: '#888', marginBottom: 12 },
-  statsContainer: {
+  statsContainerSticky: {
     flexDirection: 'row',
     backgroundColor: '#fff',
     marginHorizontal: 20,
