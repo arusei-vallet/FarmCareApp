@@ -114,6 +114,7 @@ const ProfileScreen = () => {
   const [passwordModalVisible, setPasswordModalVisible] = useState(false)
   const [notificationsEnabled, setNotificationsEnabled] = useState(true)
   const [locationEnabled, setLocationEnabled] = useState(true)
+  const [isCardSticky, setIsCardSticky] = useState(false)
 
   // Address management state
   const [addresses, setAddresses] = useState<DeliveryAddress[]>([])
@@ -534,12 +535,20 @@ const ProfileScreen = () => {
   return (
     <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <ScrollView showsVerticalScrollIndicator={false} stickyHeaderIndices={[1]}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        stickyHeaderIndices={[2]}
+        onScroll={(e) => {
+          const scrollY = e.nativeEvent.contentOffset.y;
+          setIsCardSticky(scrollY > 50);
+        }}
+        scrollEventThrottle={16}
+      >
         {/* Header Spacer */}
         <View style={styles.headerSpacer} />
-        
-        {/* Header - Sticky */}
-        <View style={styles.headerSticky}>
+
+        {/* Header - Scrollable */}
+        <View style={styles.headerScrollable}>
           <Text style={styles.headerTitle}>Profile</Text>
           <TouchableOpacity onPress={openEditModal}>
             <Ionicons name="create-outline" size={24} color={PRIMARY} />
@@ -547,7 +556,7 @@ const ProfileScreen = () => {
         </View>
 
         {/* Profile Card - Sticky */}
-        <View style={styles.profileCardWrapper}>
+        <View style={isCardSticky ? styles.profileCardWrapperSticky : styles.profileCardWrapper}>
           <View style={styles.profileCardSticky}>
             <TouchableOpacity onPress={pickAvatar} style={styles.avatarContainer}>
               <Image source={{ uri: profile.avatar }} style={styles.avatar} />
@@ -568,7 +577,7 @@ const ProfileScreen = () => {
         </View>
 
         {/* Stats - Sticky */}
-        <View style={styles.statsWrapper}>
+        <View style={isCardSticky ? styles.statsWrapperSticky : styles.statsWrapper}>
           {dataLoading ? (
             <View style={styles.statsContainerSticky}>
               <View style={styles.statBox}>
@@ -1036,7 +1045,7 @@ const styles = StyleSheet.create({
     height: 50,
     backgroundColor: '#f5f9f5',
   },
-  headerSticky: {
+  headerScrollable: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -1044,14 +1053,24 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 10,
     backgroundColor: '#f5f9f5',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: PRIMARY },
+  headerTitle: { fontSize: 28, fontWeight: '700', color: PRIMARY },
   profileCardWrapper: {
     backgroundColor: '#f5f9f5',
     paddingHorizontal: 20,
     paddingBottom: 10,
+    paddingTop: 10,
+  },
+  profileCardWrapperSticky: {
+    backgroundColor: '#f5f9f5',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 1000,
   },
   profileCardSticky: {
     backgroundColor: '#fff',
@@ -1088,6 +1107,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f9f5',
     paddingHorizontal: 20,
     paddingBottom: 10,
+  },
+  statsWrapperSticky: {
+    backgroundColor: '#f5f9f5',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 1000,
   },
   statsContainerSticky: {
     flexDirection: 'row',
