@@ -534,8 +534,11 @@ const ProfileScreen = () => {
   return (
     <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      <ScrollView showsVerticalScrollIndicator={false} stickyHeaderIndices={[0, 1, 2]}>
-        {/* Header */}
+      <ScrollView showsVerticalScrollIndicator={false} stickyHeaderIndices={[1]}>
+        {/* Header Spacer */}
+        <View style={styles.headerSpacer} />
+        
+        {/* Header - Sticky */}
         <View style={styles.headerSticky}>
           <Text style={styles.headerTitle}>Profile</Text>
           <TouchableOpacity onPress={openEditModal}>
@@ -543,42 +546,46 @@ const ProfileScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Profile Card */}
-        <View style={styles.profileCardSticky}>
-          <TouchableOpacity onPress={pickAvatar} style={styles.avatarContainer}>
-            <Image source={{ uri: profile.avatar }} style={styles.avatar} />
-            <View style={styles.cameraIcon}>
-              <Ionicons name="camera" size={16} color="#fff" />
-            </View>
-          </TouchableOpacity>
+        {/* Profile Card - Sticky */}
+        <View style={styles.profileCardWrapper}>
+          <View style={styles.profileCardSticky}>
+            <TouchableOpacity onPress={pickAvatar} style={styles.avatarContainer}>
+              <Image source={{ uri: profile.avatar }} style={styles.avatar} />
+              <View style={styles.cameraIcon}>
+                <Ionicons name="camera" size={16} color="#fff" />
+              </View>
+            </TouchableOpacity>
 
-          {dataLoading ? (
-            <ActivityIndicator size="small" color={PRIMARY} />
-          ) : (
-            <>
-              <Text style={styles.name}>{profile.name || 'User'}</Text>
-              <Text style={styles.email}>{profile.email || 'No email'}</Text>
-            </>
-          )}
+            {dataLoading ? (
+              <ActivityIndicator size="small" color={PRIMARY} />
+            ) : (
+              <>
+                <Text style={styles.name}>{profile.name || 'User'}</Text>
+                <Text style={styles.email}>{profile.email || 'No email'}</Text>
+              </>
+            )}
+          </View>
         </View>
 
-        {/* Stats */}
-        {dataLoading ? (
-          <View style={styles.statsContainerSticky}>
-            <View style={styles.statBox}>
-              <ActivityIndicator size="small" color={PRIMARY} />
-              <Text style={styles.statLabel}>Loading...</Text>
+        {/* Stats - Sticky */}
+        <View style={styles.statsWrapper}>
+          {dataLoading ? (
+            <View style={styles.statsContainerSticky}>
+              <View style={styles.statBox}>
+                <ActivityIndicator size="small" color={PRIMARY} />
+                <Text style={styles.statLabel}>Loading...</Text>
+              </View>
             </View>
-          </View>
-        ) : (
-          <View style={styles.statsContainerSticky}>
-            <View style={styles.statBox}>
-              <Ionicons name="bag-outline" size={24} color={PRIMARY} />
-              <Text style={styles.statValue}>{profile.totalOrders}</Text>
-              <Text style={styles.statLabel}>Total Orders</Text>
+          ) : (
+            <View style={styles.statsContainerSticky}>
+              <View style={styles.statBox}>
+                <Ionicons name="bag-outline" size={24} color={PRIMARY} />
+                <Text style={styles.statValue}>{profile.totalOrders}</Text>
+                <Text style={styles.statLabel}>Total Orders</Text>
+              </View>
             </View>
-          </View>
-        )}
+          )}
+        </View>
 
         {/* Delivery Addresses Section */}
         <View style={styles.section}>
@@ -1024,19 +1031,29 @@ export default ProfileScreen
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  headerSpacer: {
+    height: 50,
+    backgroundColor: '#f5f9f5',
+  },
   headerSticky: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 16,
+    paddingTop: 10,
+    paddingBottom: 10,
     backgroundColor: '#f5f9f5',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
   },
-  headerTitle: { fontSize: 28, fontWeight: '700', color: PRIMARY },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: PRIMARY },
+  profileCardWrapper: {
+    backgroundColor: '#f5f9f5',
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
   profileCardSticky: {
     backgroundColor: '#fff',
-    marginHorizontal: 20,
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',
@@ -1066,11 +1083,14 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 22, fontWeight: '700', color: '#333', marginBottom: 4 },
   email: { fontSize: 14, color: '#888', marginBottom: 12 },
+  statsWrapper: {
+    backgroundColor: '#f5f9f5',
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
   statsContainerSticky: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    marginHorizontal: 20,
-    marginTop: 16,
     borderRadius: 16,
     padding: 20,
     elevation: 4,
