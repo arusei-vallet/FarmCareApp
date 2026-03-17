@@ -281,8 +281,39 @@ const ProfileScreen = () => {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        console.log('Auth error:', authError?.message)
+        Alert.alert('Error', 'Please login to save address')
+        return
+      }
+
+      // First, check if user profile exists in public.users table
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', user.id)
+        .single()
+
+      if (profileError || !profile) {
+        console.log('Profile not found, creating one...')
+        // Create user profile if it doesn't exist
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert({
+            id: user.id,
+            email: user.email,
+            role: 'customer',
+            created_at: new Date().toISOString(),
+          })
+
+        if (insertError) {
+          console.error('Error creating profile:', insertError)
+          Alert.alert('Error', 'Failed to create user profile: ' + insertError.message)
+          return
+        }
+        console.log('Profile created successfully')
+      }
 
       // Format phone number properly
       let formattedPhone = cleanedPhone

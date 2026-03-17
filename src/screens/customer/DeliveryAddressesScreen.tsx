@@ -166,7 +166,7 @@ const DeliveryAddressesScreen = () => {
 
   const saveAddress = async () => {
     console.log('Saving address:', formData)
-    
+
     if (!formData.label || !formData.county || !formData.city || !formData.phone) {
       Alert.alert('Error', 'Please fill all required fields')
       console.log('Validation failed - missing fields')
@@ -183,23 +183,21 @@ const DeliveryAddressesScreen = () => {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        console.log('No user found')
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
+        console.log('Auth error:', authError?.message)
         Alert.alert('Error', 'Please login to save address')
         return
       }
 
       console.log('Auth user ID:', user.id)
 
-      // Get the user profile to ensure customer_id exists in users table
+      // First, check if user profile exists in public.users table
       const { data: profile, error: profileError } = await supabase
         .from('users')
         .select('id')
         .eq('id', user.id)
         .single()
-
-      let customerId = user.id
 
       if (profileError || !profile) {
         console.log('Profile not found, creating one...')
@@ -214,15 +212,14 @@ const DeliveryAddressesScreen = () => {
           })
 
         if (insertError) {
-          console.log('Error creating profile:', insertError)
-        } else {
-          console.log('Profile created successfully')
+          console.error('Error creating profile:', insertError)
+          Alert.alert('Error', 'Failed to create user profile: ' + insertError.message)
+          return
         }
-      } else {
-        customerId = profile.id
+        console.log('Profile created successfully')
       }
 
-      console.log('Using customer_id:', customerId)
+      console.log('Using customer_id:', user.id)
 
       // Format phone number properly
       let formattedPhone = cleanedPhone
@@ -235,7 +232,7 @@ const DeliveryAddressesScreen = () => {
       }
 
       console.log('Saving with data:', {
-        customer_id: customerId,
+        customer_id: user.id,
         label: formData.label,
         address_line1: formData.city,
         city: formData.city,
