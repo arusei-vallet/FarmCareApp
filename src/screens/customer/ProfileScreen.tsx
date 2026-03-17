@@ -578,11 +578,12 @@ const ProfileScreen = () => {
             </View>
           ) : (
             <View style={styles.statsContainerSticky}>
-              <View style={styles.statBox}>
+              <TouchableOpacity style={styles.statBox} onPress={() => navigation.navigate('Orders' as never)} activeOpacity={0.7}>
                 <Ionicons name="bag-outline" size={24} color={PRIMARY} />
                 <Text style={styles.statValue}>{profile.totalOrders}</Text>
                 <Text style={styles.statLabel}>Total Orders</Text>
-              </View>
+                <Ionicons name="chevron-forward" size={18} color="#999" style={styles.statChevron} />
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -1098,7 +1099,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 12,
   },
-  statBox: { flex: 1, alignItems: 'center' },
+  statBox: { flex: 1, alignItems: 'center', position: 'relative' },
+  statChevron: { position: 'absolute', right: 0, top: 0 },
   statValue: { fontSize: 20, fontWeight: '700', color: PRIMARY, marginTop: 8 },
   statLabel: { fontSize: 12, color: '#888', marginTop: 4 },
   statDivider: { width: 1, backgroundColor: '#f0f0f0', marginHorizontal: 10 },
