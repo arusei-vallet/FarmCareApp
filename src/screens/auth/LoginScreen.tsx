@@ -124,43 +124,50 @@ const LoginScreen: React.FC = () => {
       const user = data.user;
 
       if (user) {
-        // Fetch user role from public.users table
+        // Fetch user profile from public.users table
         const { data: userData, error: userError } = await supabase
           .from('users')
-          .select('role')
+          .select('role, full_name')
           .eq('id', user.id)
           .single();
 
         if (userError || !userData?.role) {
           console.warn('Role fetch issue:', userError?.message);
+          // Still navigate with welcome message using email
+          const userName = user.email?.split('@')[0] || 'User';
           Alert.alert(
-            'Account Access',
-            'Login successful, but we could not load your profile role. Using default dashboard.'
+            'Welcome Back! 👋',
+            `Hello ${userName}, you have successfully logged in.`,
+            [{ text: 'Continue', onPress: () => navigation.replace('CustomerTabs') }]
           );
-          navigation.replace('CustomerTabs');
           return;
         }
 
         const role = userData.role as 'customer' | 'farmer' | string;
+        const userName = userData.full_name || user.email?.split('@')[0] || 'User';
 
-        // Professional role-based navigation with replace (no back to login)
-        if (role === 'customer') {
-          navigation.replace('CustomerTabs');
-        } else if (role === 'farmer') {
-          navigation.replace('FarmerTabs');
-        } else {
-          Alert.alert(
-            'Role Not Recognized',
-            `Your account role (${role}) is not supported. Please contact support.`
-          );
-          navigation.replace('CustomerTabs'); // safe fallback
-        }
+        // Show welcome message and navigate based on role
+        const handleWelcomeContinue = () => {
+          if (role === 'customer') {
+            navigation.replace('CustomerTabs');
+          } else if (role === 'farmer') {
+            navigation.replace('FarmerTabs');
+          } else {
+            navigation.replace('CustomerTabs');
+          }
+        };
+
+        Alert.alert(
+          'Welcome Back! 👋',
+          `Hello ${userName}, you have successfully logged in.`,
+          [{ text: 'Continue', onPress: handleWelcomeContinue }]
+        );
 
         console.log(`Login successful — ${role} → dashboard`);
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      
+
       // Provide more helpful error messages
       let errorMessage = 'Unable to connect. Please check your internet and try again.';
       if (err.message?.includes('network')) {
@@ -168,7 +175,7 @@ const LoginScreen: React.FC = () => {
       } else if (err.message?.includes('timeout')) {
         errorMessage = 'Request timed out. Please try again.';
       }
-      
+
       Alert.alert('Connection Issue', errorMessage);
     } finally {
       setLoading(false);
