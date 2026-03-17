@@ -232,7 +232,7 @@ const OrdersScreen = () => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => navigation.navigate('Profile' as never)} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={PRIMARY} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Orders</Text>
