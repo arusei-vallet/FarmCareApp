@@ -57,10 +57,21 @@ const ProductDetailScreen = () => {
     )
   }
 
+  const handleChatPress = () => {
+    navigation.navigate('Chat' as never, {
+      sellerId: product.seller_id || 'unknown',
+      sellerName: product.seller || 'Local Farmer',
+      productId: product.id,
+      productName: product.name,
+    } as never)
+  }
+
   // Use actual product images from the database
   const images = product.images && product.images.length > 0
     ? product.images
-    : []
+    : product.image
+      ? [product.image]
+      : []
 
   const handleAddToCart = () => {
     for (let i = 0; i < quantity; i++) {
@@ -229,8 +240,8 @@ const ProductDetailScreen = () => {
                   <Text style={styles.sellerVerified}>Verified Seller</Text>
                 </View>
               </View>
-              <TouchableOpacity style={styles.contactBtn}>
-                <Ionicons name="chatbubble-outline" size={20} color={PRIMARY} />
+              <TouchableOpacity style={styles.contactBtn} onPress={handleChatPress}>
+                <Ionicons name="chatbubble" size={20} color={PRIMARY} />
               </TouchableOpacity>
             </View>
           </View>

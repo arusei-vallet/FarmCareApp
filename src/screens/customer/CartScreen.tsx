@@ -8,11 +8,12 @@ import {
   StatusBar,
   Alert,
   ScrollView,
+  Image,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import Ionicons from 'react-native-vector-icons/Ionicons'
 import { LinearGradient } from 'expo-linear-gradient'
-import { useCart, CartItem } from './CartContext'
+import { useCart, CartItem, Product } from './CartContext'
 
 const PRIMARY = '#1B5E20'
 const ACCENT = '#2ECC71'
@@ -22,6 +23,18 @@ const CartScreen: React.FC = () => {
   const { cartItems, removeItem, decreaseQuantity, clearCart } = useCart()
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
 
+  const handleImagePress = (item: CartItem) => {
+    const product: Product = {
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      seller_id: item.seller_id,
+      unit: item.unit,
+      image: item.image,
+    }
+    navigation.navigate('ProductDetail' as never, { product } as never)
+  }
+
   const calculateSubtotal = () => {
     return cartItems.reduce((sum, item) => {
       const price = parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0
@@ -29,7 +42,8 @@ const CartScreen: React.FC = () => {
     }, 0)
   }
 
-  const deliveryFee = calculateSubtotal() > 1000 ? 0 : 150
+  // FREE delivery for all orders
+  const deliveryFee = 0
   const total = calculateSubtotal() + deliveryFee
 
   const handleCheckout = () => {
@@ -76,9 +90,23 @@ const CartScreen: React.FC = () => {
           {isSelected && <Ionicons name="checkmark" size={16} color="#fff" />}
         </TouchableOpacity>
 
-        <View style={styles.itemImage}>
-          <Ionicons name="leaf-outline" size={32} color={PRIMARY} />
-        </View>
+        <TouchableOpacity
+          style={styles.itemImageContainer}
+          onPress={() => handleImagePress(item)}
+          activeOpacity={0.7}
+        >
+          {item.image ? (
+            <Image
+              source={{ uri: item.image }}
+              style={styles.itemImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.itemImagePlaceholder}>
+              <Ionicons name="leaf-outline" size={32} color={PRIMARY} />
+            </View>
+          )}
+        </TouchableOpacity>
 
         <View style={styles.itemDetails}>
           <Text style={styles.itemName}>{item.name}</Text>
@@ -173,23 +201,13 @@ const CartScreen: React.FC = () => {
 
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Delivery Fee</Text>
-          <Text style={styles.summaryValue}>
-            {deliveryFee === 0 ? (
-              <Text style={styles.freeText}>FREE</Text>
-            ) : (
-              `KES ${deliveryFee}`
-            )}
-          </Text>
+          <Text style={styles.freeText}>FREE</Text>
         </View>
 
-        {deliveryFee > 0 && (
-          <View style={styles.deliveryNote}>
-            <Ionicons name="information-circle" size={16} color={PRIMARY} />
-            <Text style={styles.deliveryNoteText}>
-              Free delivery on orders over KES 1,000
-            </Text>
-          </View>
-        )}
+        <View style={styles.freeDeliveryBadge}>
+          <Ionicons name="gift-outline" size={18} color="#fff" />
+          <Text style={styles.freeDeliveryText}>FREE Delivery on All Orders</Text>
+        </View>
 
         <View style={styles.summaryDivider} />
 
@@ -265,14 +283,24 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY,
     borderColor: PRIMARY,
   },
-  itemImage: {
+  itemImageContainer: {
     width: 60,
     height: 60,
+    borderRadius: 12,
+    marginRight: 12,
+    overflow: 'hidden',
+  },
+  itemImage: {
+    width: '100%',
+    height: '100%',
+  },
+  itemImagePlaceholder: {
+    width: '100%',
+    height: '100%',
     borderRadius: 12,
     backgroundColor: '#E8F5E9',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
   itemDetails: { flex: 1 },
   itemName: {
@@ -347,6 +375,21 @@ const styles = StyleSheet.create({
   freeText: {
     color: ACCENT,
     fontWeight: '700',
+  },
+  freeDeliveryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: ACCENT,
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 4,
+    gap: 6,
+    justifyContent: 'center',
+  },
+  freeDeliveryText: {
+    fontSize: 13,
+    color: '#fff',
+    fontWeight: '600',
   },
   deliveryNote: {
     flexDirection: 'row',

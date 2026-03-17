@@ -12,6 +12,8 @@ import {
   ActivityIndicator,
   Switch,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import Ionicons from 'react-native-vector-icons/Ionicons'
@@ -151,7 +153,7 @@ const DeliveryAddressesScreen = () => {
     setEditingAddress(address)
     setFormData({
       label: address.label,
-      address_line1: address.address_line1,
+      address_line1: address.city,
       city: address.city,
       county: address.county || '',
       phone: address.phone,
@@ -163,14 +165,83 @@ const DeliveryAddressesScreen = () => {
   }
 
   const saveAddress = async () => {
-    if (!formData.label || !formData.address_line1 || !formData.city || !formData.phone) {
+    console.log('Saving address:', formData)
+    
+    if (!formData.label || !formData.county || !formData.city || !formData.phone) {
       Alert.alert('Error', 'Please fill all required fields')
+      console.log('Validation failed - missing fields')
+      return
+    }
+
+    // Validate phone number
+    const phoneRegex = /^(\+254|0)?[17]\d{8}$/
+    const cleanedPhone = formData.phone.replace(/\s/g, '').replace(/\D/g, '')
+    if (!phoneRegex.test(cleanedPhone) || cleanedPhone.length < 10) {
+      Alert.alert('Invalid Phone', 'Please enter a valid Kenyan phone number (e.g., 0712 345 678)')
+      console.log('Validation failed - invalid phone:', cleanedPhone)
       return
     }
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        console.log('No user found')
+        Alert.alert('Error', 'Please login to save address')
+        return
+      }
+
+      console.log('Auth user ID:', user.id)
+
+      // Get the user profile to ensure customer_id exists in users table
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', user.id)
+        .single()
+
+      let customerId = user.id
+
+      if (profileError || !profile) {
+        console.log('Profile not found, creating one...')
+        // Create user profile if it doesn't exist
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert({
+            id: user.id,
+            email: user.email,
+            role: 'customer',
+            created_at: new Date().toISOString(),
+          })
+
+        if (insertError) {
+          console.log('Error creating profile:', insertError)
+        } else {
+          console.log('Profile created successfully')
+        }
+      } else {
+        customerId = profile.id
+      }
+
+      console.log('Using customer_id:', customerId)
+
+      // Format phone number properly
+      let formattedPhone = cleanedPhone
+      if (cleanedPhone.startsWith('0')) {
+        formattedPhone = '254' + cleanedPhone.substring(1)
+      } else if (cleanedPhone.startsWith('254')) {
+        formattedPhone = cleanedPhone
+      } else {
+        formattedPhone = '254' + cleanedPhone
+      }
+
+      console.log('Saving with data:', {
+        customer_id: customerId,
+        label: formData.label,
+        address_line1: formData.city,
+        city: formData.city,
+        county: formData.county,
+        phone: formattedPhone,
+      })
 
       if (editingAddress) {
         // Update existing address
@@ -178,39 +249,49 @@ const DeliveryAddressesScreen = () => {
           .from('delivery_addresses')
           .update({
             label: formData.label,
-            address_line1: formData.address_line1,
+            address_line1: formData.city,
             city: formData.city,
             county: formData.county || null,
-            phone: formData.phone,
+            phone: formattedPhone,
             is_default: formData.is_default,
           })
           .eq('id', editingAddress.id)
 
-        if (error) throw error
-        Alert.alert('Success', 'Address updated successfully')
+        if (error) {
+          console.log('Update error:', error)
+          throw error
+        }
+        console.log('Address updated successfully')
       } else {
         // Add new address
         const { error } = await supabase
           .from('delivery_addresses')
           .insert({
-            customer_id: user.id,
+            customer_id: customerId,
             label: formData.label,
-            address_line1: formData.address_line1,
+            address_line1: formData.city,
             city: formData.city,
             county: formData.county || null,
-            phone: formData.phone,
+            phone: formattedPhone,
             is_default: formData.is_default,
           })
 
-        if (error) throw error
-        Alert.alert('Success', 'Address added successfully')
+        if (error) {
+          console.log('Insert error:', error)
+          throw error
+        }
+        console.log('Address inserted successfully')
       }
 
       setModalVisible(false)
-      fetchAddresses()
+      await fetchAddresses()
+      
+      Alert.alert('Success', editingAddress ? 'Address updated successfully' : 'Address added successfully', [
+        { text: 'OK', onPress: () => navigation.goBack() }
+      ])
     } catch (error: any) {
-      console.log('Error saving address:', error.message)
-      Alert.alert('Error', 'Failed to save address')
+      console.log('Error saving address:', error.message, error)
+      Alert.alert('Error', 'Failed to save address: ' + error.message)
     }
   }
 
@@ -344,13 +425,6 @@ const DeliveryAddressesScreen = () => {
                 <View style={styles.addressRow}>
                   <Ionicons name="location-outline" size={18} color="#666" />
                   <Text style={styles.addressText}>
-                    {address.address_line1}
-                    {address.address_line2 ? `, ${address.address_line2}` : ''}
-                  </Text>
-                </View>
-                <View style={styles.addressRow}>
-                  <Ionicons name="city-outline" size={18} color="#666" />
-                  <Text style={styles.addressText}>
                     {address.city}
                     {address.county ? `, ${address.county}` : ''}
                   </Text>
@@ -388,16 +462,6 @@ const DeliveryAddressesScreen = () => {
                   placeholder="e.g., Home, Work, Office"
                   value={formData.label}
                   onChangeText={(text) => setFormData({ ...formData, label: text })}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Address Line 1 *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Street address, building number"
-                  value={formData.address_line1}
-                  onChangeText={(text) => setFormData({ ...formData, address_line1: text })}
                 />
               </View>
 
@@ -476,32 +540,60 @@ const DeliveryAddressesScreen = () => {
       {/* County Selection Modal */}
       <Modal visible={countyModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.selectionModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select County</Text>
-              <TouchableOpacity onPress={() => setCountyModalVisible(false)}>
-                <Ionicons name="close" size={28} color="#333" />
+          <View style={styles.countySelectionModal}>
+            {/* Header with Gradient */}
+            <LinearGradient colors={[PRIMARY, '#2E7D32']} style={styles.countyModalHeader}>
+              <View style={styles.countyHeaderLeft}>
+                <Ionicons name="map" size={24} color="#fff" />
+                <Text style={styles.countyModalTitle}>Select County</Text>
+              </View>
+              <TouchableOpacity 
+                onPress={() => { setCountyModalVisible(false); setSearchCounty(''); }}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close-circle" size={28} color="rgba(255,255,255,0.9)" />
               </TouchableOpacity>
-            </View>
+            </LinearGradient>
 
-            <View style={styles.searchContainer}>
-              <Ionicons name="search" size={20} color="#666" />
+            {/* Search Bar */}
+            <View style={styles.countySearchContainer}>
+              <Ionicons name="search" size={20} color={PRIMARY} />
               <TextInput
-                style={styles.searchInput}
-                placeholder="Search county..."
+                style={styles.countySearchInput}
+                placeholder="Search for a county..."
+                placeholderTextColor="#999"
                 value={searchCounty}
                 onChangeText={setSearchCounty}
+                autoCapitalize="none"
+                autoCorrect={false}
               />
+              {searchCounty.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchCounty('')}>
+                  <Ionicons name="close-circle" size={20} color="#999" />
+                </TouchableOpacity>
+              )}
             </View>
 
+            {/* Results Count */}
+            <View style={styles.resultsCount}>
+              <Text style={styles.resultsCountText}>
+                {KENYA_COUNTIES.filter(c => c.name.toLowerCase().includes(searchCounty.toLowerCase())).length} counties
+              </Text>
+            </View>
+
+            {/* County List */}
             <FlatList
-              data={KENYA_COUNTIES.filter(c => 
+              data={KENYA_COUNTIES.filter(c =>
                 c.name.toLowerCase().includes(searchCounty.toLowerCase())
               )}
               keyExtractor={(item) => item.name}
-              renderItem={({ item }) => (
+              renderItem={({ item, index }) => (
                 <TouchableOpacity
-                  style={styles.selectionOption}
+                  style={[
+                    styles.countyOption,
+                    selectedCounty === item.name && styles.countyOptionSelected,
+                    index === 0 && styles.countyOptionFirst,
+                  ]}
                   onPress={() => {
                     setSelectedCounty(item.name)
                     setFormData({ ...formData, county: item.name })
@@ -509,13 +601,36 @@ const DeliveryAddressesScreen = () => {
                     setCountyModalVisible(false)
                     setSearchCounty('')
                   }}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.selectionOptionText}>{item.name}</Text>
+                  <View style={styles.countyOptionLeft}>
+                    <View style={[
+                      styles.countyIconContainer,
+                      selectedCounty === item.name && styles.countyIconContainerSelected,
+                    ]}>
+                      <Ionicons 
+                        name="location" 
+                        size={20} 
+                        color={selectedCounty === item.name ? '#fff' : PRIMARY} 
+                      />
+                    </View>
+                    <Text style={[
+                      styles.countyOptionText,
+                      selectedCounty === item.name && styles.countyOptionTextSelected,
+                    ]}>
+                      {item.name}
+                    </Text>
+                  </View>
                   {selectedCounty === item.name && (
-                    <Ionicons name="checkmark-circle" size={24} color={PRIMARY} />
+                    <View style={styles.selectedCheckmark}>
+                      <Ionicons name="checkmark-circle" size={24} color={PRIMARY} />
+                    </View>
                   )}
                 </TouchableOpacity>
               )}
+              ItemSeparatorComponent={() => <View style={styles.countySeparator} />}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
             />
           </View>
         </View>
@@ -702,7 +817,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '85%',
+    maxHeight: '90%',
+    minHeight: '60%',
     paddingBottom: 30,
   },
   modalHeader: {
@@ -719,8 +835,8 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   formGroup: {
-    padding: 20,
-    paddingBottom: 10,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
   },
   formRow: {
     flexDirection: 'row',

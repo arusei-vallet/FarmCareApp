@@ -14,6 +14,7 @@ import {
   Platform,
   Switch,
   ActivityIndicator,
+  FlatList,
 } from 'react-native'
 import { useNavigation, useFocusEffect } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -21,27 +22,89 @@ import Ionicons from 'react-native-vector-icons/Ionicons'
 import { LinearGradient } from 'expo-linear-gradient'
 import * as ImagePicker from 'expo-image-picker'
 import { supabase } from '../../services/supabase'
-import PrivacySettingsScreen from './PrivacySettingsScreen'
-import HelpSupportScreen from './HelpSupportScreen'
-import CouponsScreen from './CouponsScreen'
-import DeliveryAddressesScreen from './DeliveryAddressesScreen'
-import PaymentMethodsScreen from './PaymentMethodsScreen'
-import TermsOfServiceScreen from './TermsOfServiceScreen'
 
-type RootStackParamList = {
+// Declare the navigation param list type for the main app stack
+export type RootStackParamList = {
   Onboarding: undefined
+  Login: undefined
+  RegisterScreen: undefined
+  ForgotPassword: undefined
+  CustomerTabs: undefined
+  FarmerTabs: undefined
+  ProductDetail: { productId?: string; productName?: string; price?: number; imageUrl?: string }
+  Checkout: undefined
   PrivacySettings: undefined
   HelpSupport: undefined
-  Coupons: undefined
-  DeliveryAddresses: undefined
   PaymentMethods: undefined
   TermsOfService: undefined
+  Orders: undefined
 }
 
 type ProfileScreenNavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 const PRIMARY = '#1B5E20'
 const ACCENT = '#2ECC71'
+
+// Kenya Counties Data with major locations
+const KENYA_COUNTIES = [
+  { name: 'Mombasa', locations: ['Mombasa Island', 'Mombasa CBD', 'Kilindini', 'Tudor', 'Nyali', 'Bamburi', 'Shanzu', 'Likoni', 'Changamwe'] },
+  { name: 'Kwale', locations: ['Kwale Town', 'Msambweni', 'Gazi', 'Lungalunga', 'Matuga'] },
+  { name: 'Kilifi', locations: ['Kilifi Town', 'Malindi', 'Watamu', 'Arabuko', 'Gede'] },
+  { name: 'Tana River', locations: ['Hola', 'Garsen', 'Madogo'] },
+  { name: 'Lamu', locations: ['Lamu Town', 'Shela', 'Manda'] },
+  { name: 'Taita Taveta', locations: ['Voi', 'Taveta', 'Wundanyi'] },
+  { name: 'Garissa', locations: ['Garissa Town', 'Dadaab'] },
+  { name: 'Wajir', locations: ['Wajir Town', 'Eldas'] },
+  { name: 'Mandera', locations: ['Mandera Town', 'El Wak'] },
+  { name: 'Marsabit', locations: ['Marsabit Town', 'Moyale'] },
+  { name: 'Isiolo', locations: ['Isiolo Town', 'Merti'] },
+  { name: 'Meru', locations: ['Meru Town', 'Maua'] },
+  { name: 'Tharaka Nithi', locations: ['Kathwana', 'Chuka'] },
+  { name: 'Embu', locations: ['Embu Town', 'Runyenjes'] },
+  { name: 'Kitui', locations: ['Kitui Town', 'Mwingi'] },
+  { name: 'Machakos', locations: ['Machakos Town', 'Athi River', 'Syokimau', 'Mulolongo'] },
+  { name: 'Makueni', locations: ['Wote', 'Kibwezi', 'Makindu'] },
+  { name: 'Nyandarua', locations: ['Ol Kalou', 'Nyahururu'] },
+  { name: 'Nyeri', locations: ['Nyeri Town', 'Othaya', 'Karatina'] },
+  { name: 'Kirinyaga', locations: ['Kerugoya', 'Sagana', 'Kutus'] },
+  { name: 'Muranga', locations: ['Muranga Town', 'Kangema'] },
+  { name: 'Kiambu', locations: ['Kiambu Town', 'Thika', 'Ruiru', 'Juja', 'Kikuyu', 'Limuru', 'Karuri', 'Gatundu'] },
+  { name: 'Turkana', locations: ['Lodwar', 'Kakuma'] },
+  { name: 'West Pokot', locations: ['Kapenguria'] },
+  { name: 'Samburu', locations: ['Maralal'] },
+  { name: 'Trans Nzoia', locations: ['Kitale'] },
+  { name: 'Uasin Gishu', locations: ['Eldoret'] },
+  { name: 'Elgeyo Marakwet', locations: ['Iten'] },
+  { name: 'Nandi', locations: ['Kapsabet', 'Nandi Hills'] },
+  { name: 'Baringo', locations: ['Kabarnet'] },
+  { name: 'Laikipia', locations: ['Nanyuki', 'Rumuruti'] },
+  { name: 'Nakuru', locations: ['Nakuru Town', 'Naivasha', 'Gilgil', 'Molo'] },
+  { name: 'Narok', locations: ['Narok Town'] },
+  { name: 'Kajiado', locations: ['Kajiado Town', 'Ngong', 'Ongata Rongai', 'Kitengela'] },
+  { name: 'Kericho', locations: ['Kericho Town'] },
+  { name: 'Bomet', locations: ['Bomet Town'] },
+  { name: 'Kakamega', locations: ['Kakamega Town', 'Mumias'] },
+  { name: 'Vihiga', locations: ['Vihiga Town', 'Mbale', 'Hamisi', 'Luanda', 'Emuhaya', 'Mumias West', 'Wodanga', 'Lyaduywa', 'Izawa', 'Shirere', 'Tsintsuta', 'Lugari', 'Matungu'] },
+  { name: 'Bungoma', locations: ['Bungoma Town', 'Webuye'] },
+  { name: 'Busia', locations: ['Busia Town', 'Malaba'] },
+  { name: 'Siaya', locations: ['Siaya Town'] },
+  { name: 'Kisumu', locations: ['Kisumu City', 'Ahero', 'Maseno'] },
+  { name: 'Homa Bay', locations: ['Homa Bay Town'] },
+  { name: 'Migori', locations: ['Migori Town'] },
+  { name: 'Kisii', locations: ['Kisii Town'] },
+  { name: 'Nyamira', locations: ['Nyamira Town'] },
+  { name: 'Nairobi', locations: ['Nairobi CBD', 'Westlands', 'Kasarani', 'Roysambu', 'Kahawa', 'Ruaraka', 'Embakasi', 'Kamukunji', 'Starehe', 'Makadara', 'Langata', 'Kibra', 'Dagoretti', 'Karen', 'Kilimani', 'Kileleshwa', 'Lavington', 'South B', 'South C', 'Buruburu', 'Donholm', 'Utawala', 'Kayole'] },
+]
+
+interface DeliveryAddress {
+  id: string
+  label: string
+  address_line1: string
+  city: string
+  county?: string
+  phone: string
+  is_default: boolean
+}
 
 const ProfileScreen = () => {
   const navigation = useNavigation<ProfileScreenNavigationProp>()
@@ -52,16 +115,29 @@ const ProfileScreen = () => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true)
   const [locationEnabled, setLocationEnabled] = useState(true)
 
+  // Address management state
+  const [addresses, setAddresses] = useState<DeliveryAddress[]>([])
+  const [addressModalVisible, setAddressModalVisible] = useState(false)
+  const [editingAddress, setEditingAddress] = useState<DeliveryAddress | null>(null)
+  const [countyModalVisible, setCountyModalVisible] = useState(false)
+  const [locationModalVisible, setLocationModalVisible] = useState(false)
+  const [searchCounty, setSearchCounty] = useState('')
+  const [selectedCounty, setSelectedCounty] = useState('')
+  const [selectedLocation, setSelectedLocation] = useState('')
+  const [addressFormData, setAddressFormData] = useState({
+    label: '',
+    city: '',
+    county: '',
+    phone: '',
+  })
+
   const [profile, setProfile] = useState({
     name: '',
     email: '',
     phone: '',
     avatar: '',
     address: '',
-    memberSince: '',
     totalOrders: 0,
-    averageRating: 0,
-    totalCoupons: 0,
   })
 
   const [tempProfile, setTempProfile] = useState({ ...profile })
@@ -72,6 +148,7 @@ const ProfileScreen = () => {
   useFocusEffect(
     React.useCallback(() => {
       loadUserProfile()
+      fetchAddresses()
     }, [])
   )
 
@@ -79,13 +156,13 @@ const ProfileScreen = () => {
     try {
       setDataLoading(true)
       const { data: { user }, error: authError } = await supabase.auth.getUser()
-      
+
       if (authError) {
         console.log('Auth error getting user:', authError.message)
         setDataLoading(false)
         return
       }
-      
+
       if (!user) {
         console.log('No authenticated user found')
         setDataLoading(false)
@@ -118,46 +195,10 @@ const ProfileScreen = () => {
           console.log('Error counting orders:', ordersError.message)
         }
 
-        // Fetch reviews given by user to calculate average rating
-        const { data: reviews, error: reviewsError } = await supabase
-          .from('reviews')
-          .select('rating')
-          .eq('customer_id', user.id)
-
-        if (reviewsError) {
-          console.log('Error fetching reviews:', reviewsError.message)
-        }
-
-        const averageRating = reviews && reviews.length > 0
-          ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-          : 0
-
-        // Fetch available coupons for the user
-        const { count: couponsCount, error: couponsError } = await supabase
-          .from('coupons')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .eq('is_used', false)
-          .gte('expires_at', new Date().toISOString())
-
-        if (couponsError) {
-          console.log('Error counting coupons:', couponsError.message)
-        }
-
-        // Parse member since date
-        const memberSince = userData.created_at
-          ? new Date(userData.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-          : 'January 2024'
-
         // Get the registered name - prioritize full_name from users table
-        // The name field contains the full name as entered during registration
-        const registeredName = userData.full_name 
+        const registeredName = userData.full_name
           ? userData.full_name.trim()
           : (user.user_metadata?.full_name || user.email?.split('@')[0] || 'User')
-
-        console.log('Registered name from database:', userData.full_name)
-        console.log('Name from auth metadata:', user.user_metadata?.full_name)
-        console.log('Final display name:', registeredName)
 
         setProfile({
           name: registeredName,
@@ -165,30 +206,180 @@ const ProfileScreen = () => {
           phone: userData.phone || '',
           avatar: userData.avatar_url || '',
           address: userData.address || '',
-          memberSince,
           totalOrders: ordersCount || 0,
-          averageRating: Math.round(averageRating * 10) / 10,
-          totalCoupons: couponsCount || 0,
         })
       } else {
         console.log('No user profile found in database, using auth data only')
-        // Fallback if no profile exists in public.users
         setProfile({
           name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
           email: user.email || '',
           phone: '',
           avatar: '',
           address: '',
-          memberSince: 'January 2024',
           totalOrders: 0,
-          averageRating: 0,
-          totalCoupons: 0,
         })
       }
     } catch (error: any) {
       console.log('Unexpected error loading profile:', error.message)
     } finally {
       setDataLoading(false)
+    }
+  }
+
+  // Address management functions
+  const fetchAddresses = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from('delivery_addresses')
+        .select('*')
+        .eq('customer_id', user.id)
+        .order('is_default', { ascending: false })
+
+      if (error) throw error
+      setAddresses(data || [])
+    } catch (error: any) {
+      console.log('Error fetching addresses:', error.message)
+    }
+  }
+
+  const openAddAddressModal = () => {
+    setEditingAddress(null)
+    setAddressFormData({ label: '', city: '', county: '', phone: '' })
+    setSelectedCounty('')
+    setSelectedLocation('')
+    setAddressModalVisible(true)
+  }
+
+  const openEditAddressModal = (address: DeliveryAddress) => {
+    setEditingAddress(address)
+    setAddressFormData({
+      label: address.label,
+      city: address.city,
+      county: address.county || '',
+      phone: address.phone,
+    })
+    setSelectedCounty(address.county || '')
+    setSelectedLocation(address.city)
+    setAddressModalVisible(true)
+  }
+
+  const saveAddress = async () => {
+    if (!addressFormData.label || !addressFormData.county || !addressFormData.city || !addressFormData.phone) {
+      Alert.alert('Error', 'Please fill all required fields')
+      return
+    }
+
+    // Validate phone number
+    const phoneRegex = /^(\+254|0)?[17]\d{8}$/
+    const cleanedPhone = addressFormData.phone.replace(/\s/g, '').replace(/\D/g, '')
+    if (!phoneRegex.test(cleanedPhone) || cleanedPhone.length < 10) {
+      Alert.alert('Invalid Phone', 'Please enter a valid Kenyan phone number (e.g., 0712 345 678)')
+      return
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Format phone number properly
+      let formattedPhone = cleanedPhone
+      if (cleanedPhone.startsWith('0')) {
+        formattedPhone = '254' + cleanedPhone.substring(1)
+      } else if (cleanedPhone.startsWith('254')) {
+        formattedPhone = cleanedPhone
+      } else {
+        formattedPhone = '254' + cleanedPhone
+      }
+
+      if (editingAddress) {
+        // Update existing address
+        const { error } = await supabase
+          .from('delivery_addresses')
+          .update({
+            label: addressFormData.label,
+            address_line1: addressFormData.city,
+            city: addressFormData.city,
+            county: addressFormData.county || null,
+            phone: formattedPhone,
+          })
+          .eq('id', editingAddress.id)
+
+        if (error) throw error
+        Alert.alert('Success', 'Address updated successfully')
+      } else {
+        // Add new address
+        const { error } = await supabase
+          .from('delivery_addresses')
+          .insert({
+            customer_id: user.id,
+            label: addressFormData.label,
+            address_line1: addressFormData.city,
+            city: addressFormData.city,
+            county: addressFormData.county || null,
+            phone: formattedPhone,
+            is_default: addresses.length === 0,
+          })
+
+        if (error) throw error
+        Alert.alert('Success', 'Address added successfully')
+      }
+
+      setAddressModalVisible(false)
+      fetchAddresses()
+    } catch (error: any) {
+      console.log('Error saving address:', error.message)
+      Alert.alert('Error', 'Failed to save address')
+    }
+  }
+
+  const deleteAddress = (address: DeliveryAddress) => {
+    Alert.alert('Delete Address', 'Are you sure you want to delete this address?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const { error } = await supabase
+              .from('delivery_addresses')
+              .delete()
+              .eq('id', address.id)
+
+            if (error) throw error
+            Alert.alert('Success', 'Address deleted successfully')
+            fetchAddresses()
+          } catch (error: any) {
+            Alert.alert('Error', 'Failed to delete address')
+          }
+        },
+      },
+    ])
+  }
+
+  const setDefaultAddress = async (address: DeliveryAddress) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // First, unset all default addresses
+      await supabase
+        .from('delivery_addresses')
+        .update({ is_default: false })
+        .eq('customer_id', user.id)
+
+      // Then set this one as default
+      const { error } = await supabase
+        .from('delivery_addresses')
+        .update({ is_default: true })
+        .eq('id', address.id)
+
+      if (error) throw error
+      fetchAddresses()
+    } catch (error: any) {
+      Alert.alert('Error', 'Failed to set default address')
     }
   }
 
@@ -302,10 +493,8 @@ const ProfileScreen = () => {
 
   const menuItems: { icon: string; label: string; action: () => void; badge?: number }[] = [
     { icon: 'receipt-outline', label: 'Order History', action: () => navigation.navigate('Orders' as never), badge: 0 },
-    { icon: 'location-outline', label: 'Delivery Addresses', action: () => navigation.navigate('DeliveryAddresses' as never), badge: 0 },
     { icon: 'card-outline', label: 'Payment Methods', action: () => navigation.navigate('PaymentMethods' as never), badge: 0 },
     { icon: 'heart-outline', label: 'Favorites', action: () => Alert.alert('Coming Soon', 'Favorites feature will be available soon'), badge: 0 },
-    { icon: 'pricetag-outline', label: 'Coupons', action: () => navigation.navigate('Coupons' as never), badge: profile.totalCoupons },
     { icon: 'chatbubble-outline', label: 'Help & Support', action: () => navigation.navigate('HelpSupport' as never), badge: 0 },
     { icon: 'shield-outline', label: 'Privacy Policy', action: () => navigation.navigate('PrivacySettings' as never), badge: 0 },
     { icon: 'document-text-outline', label: 'Terms of Service', action: () => navigation.navigate('TermsOfService' as never), badge: 0 },
@@ -340,31 +529,11 @@ const ProfileScreen = () => {
               <Text style={styles.email}>{profile.email || 'No email'}</Text>
             </>
           )}
-          <View style={styles.memberBadge}>
-            <Ionicons name="calendar-outline" size={14} color={PRIMARY} />
-            <Text style={styles.memberText}>Member since {profile.memberSince}</Text>
-          </View>
-
-          {/* Refresh button */}
-          <TouchableOpacity onPress={loadUserProfile} style={styles.refreshBtn}>
-            <Ionicons name="refresh-outline" size={20} color={PRIMARY} />
-            <Text style={styles.refreshBtnText}>Refresh</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Stats */}
         {dataLoading ? (
           <View style={styles.statsContainer}>
-            <View style={styles.statBox}>
-              <ActivityIndicator size="small" color={PRIMARY} />
-              <Text style={styles.statLabel}>Loading...</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statBox}>
-              <ActivityIndicator size="small" color={PRIMARY} />
-              <Text style={styles.statLabel}>Loading...</Text>
-            </View>
-            <View style={styles.statDivider} />
             <View style={styles.statBox}>
               <ActivityIndicator size="small" color={PRIMARY} />
               <Text style={styles.statLabel}>Loading...</Text>
@@ -377,20 +546,79 @@ const ProfileScreen = () => {
               <Text style={styles.statValue}>{profile.totalOrders}</Text>
               <Text style={styles.statLabel}>Total Orders</Text>
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statBox}>
-              <Ionicons name="star-outline" size={24} color={PRIMARY} />
-              <Text style={styles.statValue}>{profile.averageRating > 0 ? profile.averageRating.toFixed(1) : 'N/A'}</Text>
-              <Text style={styles.statLabel}>Rating</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statBox}>
-              <Ionicons name="pricetag-outline" size={24} color={PRIMARY} />
-              <Text style={styles.statValue}>{profile.totalCoupons}</Text>
-              <Text style={styles.statLabel}>Coupons</Text>
-            </View>
           </View>
         )}
+
+        {/* Delivery Addresses Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Delivery Addresses</Text>
+            <TouchableOpacity style={styles.addAddressBtn} onPress={openAddAddressModal}>
+              <Ionicons name="add" size={20} color="#fff" />
+              <Text style={styles.addAddressText}>Add</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.addressesCard}>
+            {addresses.length === 0 ? (
+              <View style={styles.emptyAddresses}>
+                <Ionicons name="location-outline" size={40} color="#ccc" />
+                <Text style={styles.emptyText}>No addresses saved</Text>
+                <Text style={styles.emptySubtext}>Tap Add to create your first address</Text>
+              </View>
+            ) : (
+              addresses.map((address) => (
+                <View key={address.id} style={styles.addressCard}>
+                  <View style={styles.addressHeader}>
+                    <View style={styles.addressLabelContainer}>
+                      <Ionicons name="pricetag-outline" size={16} color={PRIMARY} />
+                      <Text style={styles.addressLabel}>{address.label}</Text>
+                      {address.is_default && (
+                        <View style={styles.defaultBadge}>
+                          <Text style={styles.defaultBadgeText}>Default</Text>
+                        </View>
+                      )}
+                    </View>
+                    <View style={styles.addressActions}>
+                      {!address.is_default && (
+                        <TouchableOpacity
+                          onPress={() => setDefaultAddress(address)}
+                          style={styles.actionBtn}
+                        >
+                          <Ionicons name="star-outline" size={18} color="#FF9800" />
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity
+                        onPress={() => openEditAddressModal(address)}
+                        style={styles.actionBtn}
+                      >
+                        <Ionicons name="create-outline" size={18} color={PRIMARY} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => deleteAddress(address)}
+                        style={styles.actionBtn}
+                      >
+                        <Ionicons name="trash-outline" size={18} color="#D32F2F" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  <View style={styles.addressContent}>
+                    <View style={styles.addressRow}>
+                      <Ionicons name="location-outline" size={16} color="#666" />
+                      <Text style={styles.addressText}>
+                        {address.city}
+                        {address.county ? `, ${address.county}` : ''}
+                      </Text>
+                    </View>
+                    <View style={styles.addressRow}>
+                      <Ionicons name="call-outline" size={16} color="#666" />
+                      <Text style={styles.addressText}>{address.phone}</Text>
+                    </View>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        </View>
 
         {/* Settings */}
         <View style={styles.section}>
@@ -575,6 +803,188 @@ const ProfileScreen = () => {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Add/Edit Address Modal */}
+      <Modal visible={addressModalVisible} transparent animationType="slide">
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalContainer}
+        >
+          <View style={styles.modalOverlay}>
+            <LinearGradient colors={['#fff', '#f5fff5']} style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {editingAddress ? 'Edit Address' : 'Add New Address'}
+                </Text>
+                <TouchableOpacity onPress={() => setAddressModalVisible(false)}>
+                  <Ionicons name="close" size={28} color="#333" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Name/Label *</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="e.g., Home, Work, Office"
+                    value={addressFormData.label}
+                    onChangeText={(text) => setAddressFormData({ ...addressFormData, label: text })}
+                  />
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>County *</Text>
+                  <TouchableOpacity
+                    style={styles.selectorInput}
+                    onPress={() => setCountyModalVisible(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={selectedCounty ? styles.selectorInputText : styles.selectorPlaceholder}>
+                      {selectedCounty || 'Select County'}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color="#666" />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Location *</Text>
+                  <TouchableOpacity
+                    style={styles.selectorInput}
+                    onPress={() => {
+                      if (!selectedCounty) {
+                        Alert.alert('Select County First', 'Please select a county first')
+                        return
+                      }
+                      setLocationModalVisible(true)
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={selectedLocation ? styles.selectorInputText : styles.selectorPlaceholder}>
+                      {selectedLocation || 'Select Location'}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color="#666" />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Phone Number *</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="0712 345 678"
+                    keyboardType="phone-pad"
+                    value={addressFormData.phone}
+                    onChangeText={(text) => setAddressFormData({ ...addressFormData, phone: text })}
+                  />
+                </View>
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={styles.modalCancelBtn}
+                    onPress={() => setAddressModalVisible(false)}
+                  >
+                    <Text style={styles.modalBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.modalSaveBtn}
+                    onPress={saveAddress}
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.modalBtnText}>Save</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </LinearGradient>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* County Selection Modal */}
+      <Modal visible={countyModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.selectionModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select County</Text>
+              <TouchableOpacity onPress={() => setCountyModalVisible(false)}>
+                <Ionicons name="close" size={28} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.searchContainer}>
+              <Ionicons name="search" size={20} color="#666" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search county..."
+                value={searchCounty}
+                onChangeText={setSearchCounty}
+              />
+            </View>
+
+            <FlatList
+              data={KENYA_COUNTIES.filter(c =>
+                c.name.toLowerCase().includes(searchCounty.toLowerCase())
+              )}
+              keyExtractor={(item) => item.name}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.selectionOption}
+                  onPress={() => {
+                    setSelectedCounty(item.name)
+                    setAddressFormData({ ...addressFormData, county: item.name })
+                    setSelectedLocation('')
+                    setCountyModalVisible(false)
+                    setSearchCounty('')
+                  }}
+                >
+                  <Text style={styles.selectionOptionText}>{item.name}</Text>
+                  {selectedCounty === item.name && (
+                    <Ionicons name="checkmark-circle" size={24} color={PRIMARY} />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Location Selection Modal */}
+      <Modal visible={locationModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.selectionModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {selectedCounty} - Select Location
+              </Text>
+              <TouchableOpacity onPress={() => setLocationModalVisible(false)}>
+                <Ionicons name="close" size={28} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <FlatList
+              data={KENYA_COUNTIES.find(c => c.name === selectedCounty)?.locations || []}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.selectionOption}
+                  onPress={() => {
+                    setSelectedLocation(item)
+                    setAddressFormData({ ...addressFormData, city: item })
+                    setLocationModalVisible(false)
+                  }}
+                >
+                  <Text style={styles.selectionOptionText}>{item}</Text>
+                  {selectedLocation === item && (
+                    <Ionicons name="checkmark-circle" size={24} color={PRIMARY} />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </LinearGradient>
   )
 }
@@ -624,32 +1034,6 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 22, fontWeight: '700', color: '#333', marginBottom: 4 },
   email: { fontSize: 14, color: '#888', marginBottom: 12 },
-  memberBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    gap: 6,
-    marginBottom: 12,
-  },
-  memberText: { fontSize: 12, color: PRIMARY, fontWeight: '500' },
-  refreshBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: '#E8F5E9',
-    alignSelf: 'center',
-  },
-  refreshBtnText: {
-    color: PRIMARY,
-    fontWeight: '600',
-    fontSize: 13,
-  },
   statsContainer: {
     flexDirection: 'row',
     backgroundColor: '#fff',
@@ -791,4 +1175,171 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   successText: { color: '#2E7D32', fontWeight: '500' },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  addAddressBtn: {
+    flexDirection: 'row',
+    backgroundColor: PRIMARY,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    gap: 4,
+  },
+  addAddressText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  addressesCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+  },
+  emptyAddresses: {
+    alignItems: 'center',
+    paddingVertical: 30,
+  },
+  emptyText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 12,
+  },
+  emptySubtext: {
+    fontSize: 13,
+    color: '#888',
+    marginTop: 4,
+  },
+  addressCard: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+  },
+  addressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  addressLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  addressLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: PRIMARY,
+  },
+  defaultBadge: {
+    backgroundColor: ACCENT,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 4,
+  },
+  defaultBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '600',
+  },
+  addressActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionBtn: {
+    padding: 4,
+  },
+  addressContent: {
+    gap: 6,
+  },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  addressText: {
+    fontSize: 14,
+    color: '#666',
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  formGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 6,
+  },
+  selectorInput: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f5fff5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    padding: 14,
+  },
+  selectorInputText: {
+    fontSize: 15,
+    color: '#333',
+  },
+  selectorPlaceholder: {
+    fontSize: 15,
+    color: '#999',
+  },
+  selectionModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 10,
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 12,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    fontSize: 15,
+    color: '#333',
+  },
+  selectionOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  selectionOptionText: {
+    fontSize: 15,
+    color: '#333',
+    flex: 1,
+  },
 })

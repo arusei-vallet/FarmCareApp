@@ -23,57 +23,6 @@ import { initiateSTKPush, pollPaymentStatus, validateMPesaPhone } from '../../se
 const PRIMARY = '#1B5E20'
 const ACCENT = '#2ECC71'
 
-// Kenya Counties Data with major locations
-const KENYA_COUNTIES = [
-  { name: 'Mombasa', locations: ['Mombasa Island', 'Mombasa CBD', 'Kilindini', 'Tudor', 'Nyali', 'Bamburi', 'Shanzu', 'Likoni', 'Changamwe'] },
-  { name: 'Kwale', locations: ['Kwale Town', 'Msambweni', 'Gazi', 'Lungalunga', 'Matuga'] },
-  { name: 'Kilifi', locations: ['Kilifi Town', 'Malindi', 'Watamu', 'Arabuko', 'Gede'] },
-  { name: 'Tana River', locations: ['Hola', 'Garsen', 'Madogo'] },
-  { name: 'Lamu', locations: ['Lamu Town', 'Shela', 'Manda'] },
-  { name: 'Taita Taveta', locations: ['Voi', 'Taveta', 'Wundanyi'] },
-  { name: 'Garissa', locations: ['Garissa Town', 'Dadaab'] },
-  { name: 'Wajir', locations: ['Wajir Town', 'Eldas'] },
-  { name: 'Mandera', locations: ['Mandera Town', 'El Wak'] },
-  { name: 'Marsabit', locations: ['Marsabit Town', 'Moyale'] },
-  { name: 'Isiolo', locations: ['Isiolo Town', 'Merti'] },
-  { name: 'Meru', locations: ['Meru Town', 'Maua'] },
-  { name: 'Tharaka Nithi', locations: ['Kathwana', 'Chuka'] },
-  { name: 'Embu', locations: ['Embu Town', 'Runyenjes'] },
-  { name: 'Kitui', locations: ['Kitui Town', 'Mwingi'] },
-  { name: 'Machakos', locations: ['Machakos Town', 'Athi River', 'Syokimau', 'Mulolongo'] },
-  { name: 'Makueni', locations: ['Wote', 'Kibwezi', 'Makindu'] },
-  { name: 'Nyandarua', locations: ['Ol Kalou', 'Nyahururu'] },
-  { name: 'Nyeri', locations: ['Nyeri Town', 'Othaya', 'Karatina'] },
-  { name: 'Kirinyaga', locations: ['Kerugoya', 'Sagana', 'Kutus'] },
-  { name: 'Muranga', locations: ['Muranga Town', 'Kangema'] },
-  { name: 'Kiambu', locations: ['Kiambu Town', 'Thika', 'Ruiru', 'Juja', 'Kikuyu', 'Limuru', 'Karuri', 'Gatundu'] },
-  { name: 'Turkana', locations: ['Lodwar', 'Kakuma'] },
-  { name: 'West Pokot', locations: ['Kapenguria'] },
-  { name: 'Samburu', locations: ['Maralal'] },
-  { name: 'Trans Nzoia', locations: ['Kitale'] },
-  { name: 'Uasin Gishu', locations: ['Eldoret'] },
-  { name: 'Elgeyo Marakwet', locations: ['Iten'] },
-  { name: 'Nandi', locations: ['Kapsabet', 'Nandi Hills'] },
-  { name: 'Baringo', locations: ['Kabarnet'] },
-  { name: 'Laikipia', locations: ['Nanyuki', 'Rumuruti'] },
-  { name: 'Nakuru', locations: ['Nakuru Town', 'Naivasha', 'Gilgil', 'Molo'] },
-  { name: 'Narok', locations: ['Narok Town'] },
-  { name: 'Kajiado', locations: ['Kajiado Town', 'Ngong', 'Ongata Rongai', 'Kitengela'] },
-  { name: 'Kericho', locations: ['Kericho Town'] },
-  { name: 'Bomet', locations: ['Bomet Town'] },
-  { name: 'Kakamega', locations: ['Kakamega Town', 'Mumias'] },
-  { name: 'Vihiga', locations: ['Vihiga Town', 'Mbale', 'Hamisi', 'Luanda', 'Emuhaya', 'Mumias West', 'Wodanga', 'Lyaduywa', 'Izawa', 'Shirere', 'Tsintsuta', 'Lugari', 'Matungu'] },
-  { name: 'Bungoma', locations: ['Bungoma Town', 'Webuye'] },
-  { name: 'Busia', locations: ['Busia Town', 'Malaba'] },
-  { name: 'Siaya', locations: ['Siaya Town'] },
-  { name: 'Kisumu', locations: ['Kisumu City', 'Ahero', 'Maseno'] },
-  { name: 'Homa Bay', locations: ['Homa Bay Town'] },
-  { name: 'Migori', locations: ['Migori Town'] },
-  { name: 'Kisii', locations: ['Kisii Town'] },
-  { name: 'Nyamira', locations: ['Nyamira Town'] },
-  { name: 'Nairobi', locations: ['Nairobi CBD', 'Westlands', 'Kasarani', 'Roysambu', 'Kahawa', 'Ruaraka', 'Embakasi', 'Kamukunji', 'Starehe', 'Makadara', 'Langata', 'Kibra', 'Dagoretti', 'Karen', 'Kilimani', 'Kileleshwa', 'Lavington', 'South B', 'South C', 'Buruburu', 'Donholm', 'Utawala', 'Kayole'] },
-]
-
 type RootStackParamList = {
   Checkout: { total: number; items: CartItem[] }
   DeliveryAddresses: undefined
@@ -81,17 +30,6 @@ type RootStackParamList = {
 
 type CheckoutScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Checkout'>
 type CheckoutScreenRouteProp = RouteProp<RootStackParamList, 'Checkout'>
-
-interface DeliveryAddress {
-  id: string
-  label: string
-  address_line1: string
-  address_line2?: string
-  city: string
-  county?: string
-  phone: string
-  is_default: boolean
-}
 
 interface SavedCard {
   id: string
@@ -112,27 +50,7 @@ const CheckoutScreen = () => {
   const [processing, setProcessing] = useState(false)
   const [successModal, setSuccessModal] = useState(false)
   const [orderNumber, setOrderNumber] = useState('')
-  const [addresses, setAddresses] = useState<DeliveryAddress[]>([])
-  const [selectedAddress, setSelectedAddress] = useState<DeliveryAddress | null>(null)
-  const [addressModalVisible, setAddressModalVisible] = useState(false)
-  const [loadingAddresses, setLoadingAddresses] = useState(false)
 
-  // County and location selection state
-  const [countyModalVisible, setCountyModalVisible] = useState(false)
-  const [locationModalVisible, setLocationModalVisible] = useState(false)
-  const [searchCounty, setSearchCounty] = useState('')
-  const [selectedCounty, setSelectedCounty] = useState('')
-  const [selectedLocation, setSelectedLocation] = useState('')
-
-  // Add/Edit address form state
-  const [newAddressData, setNewAddressData] = useState({
-    label: '',
-    address_line1: '',
-    county: '',
-    location: '',
-    phone: '',
-  })
-  
   // Card payment state
   const [cardNumber, setCardNumber] = useState('')
   const [cardHolderName, setCardHolderName] = useState('')
@@ -159,19 +77,10 @@ const CheckoutScreen = () => {
   const deliveryFee = 0
   const finalTotal = subtotal + deliveryFee
 
-  // Fetch addresses on mount
+  // Fetch saved cards on mount
   useEffect(() => {
-    fetchAddresses()
     fetchSavedCards()
   }, [])
-
-  // Focus effect to reload addresses when returning from DeliveryAddresses screen
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      fetchAddresses()
-    })
-    return unsubscribe
-  }, [navigation])
 
   // Card type detection
   useEffect(() => {
@@ -188,32 +97,6 @@ const CheckoutScreen = () => {
     detectCardType()
   }, [cardNumber])
 
-  const fetchAddresses = async () => {
-    try {
-      setLoadingAddresses(true)
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data, error } = await supabase
-        .from('delivery_addresses')
-        .select('*')
-        .eq('customer_id', user.id)
-        .order('is_default', { ascending: false })
-
-      if (error) throw error
-
-      setAddresses(data || [])
-
-      // Select default address or first address
-      const defaultAddr = data?.find(a => a.is_default) || data?.[0] || null
-      setSelectedAddress(defaultAddr)
-    } catch (error: any) {
-      console.log('Error fetching addresses:', error.message)
-    } finally {
-      setLoadingAddresses(false)
-    }
-  }
-
   const fetchSavedCards = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -229,49 +112,6 @@ const CheckoutScreen = () => {
       setSavedCards(data || [])
     } catch (error: any) {
       console.log('Error fetching saved cards:', error.message)
-    }
-  }
-
-  const handleSaveNewAddress = async () => {
-    if (!newAddressData.label || !newAddressData.address_line1 || !newAddressData.county || !newAddressData.location || !newAddressData.phone) {
-      Alert.alert('Error', 'Please fill all required fields')
-      return
-    }
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { error } = await supabase
-        .from('delivery_addresses')
-        .insert({
-          customer_id: user.id,
-          label: newAddressData.label,
-          address_line1: newAddressData.address_line1,
-          city: newAddressData.location,
-          county: newAddressData.county,
-          phone: newAddressData.phone,
-          is_default: addresses.length === 0,
-        })
-
-      if (error) throw error
-
-      Alert.alert('Success', 'Address added successfully')
-      
-      // Clear form
-      setNewAddressData({
-        label: '',
-        address_line1: '',
-        county: '',
-        location: '',
-        phone: '',
-      })
-      
-      // Reload addresses
-      fetchAddresses()
-    } catch (error: any) {
-      console.log('Error saving address:', error.message)
-      Alert.alert('Error', 'Failed to save address')
     }
   }
 
@@ -331,15 +171,6 @@ const CheckoutScreen = () => {
     if (yearNum < currentYear || (yearNum === currentYear && monthNum < currentMonth)) return false
     
     return true
-  }
-
-  const handleSelectAddress = () => {
-    setAddressModalVisible(true)
-  }
-
-  const confirmAddressSelection = (address: DeliveryAddress) => {
-    setSelectedAddress(address)
-    setAddressModalVisible(false)
   }
 
   // Initiate M-Pesa STK Push
@@ -483,11 +314,6 @@ const CheckoutScreen = () => {
   }
 
   const handlePlaceOrder = async () => {
-    if (!selectedAddress) {
-      Alert.alert('Address Required', 'Please select a delivery address')
-      return
-    }
-
     if (paymentMethod === 'mpesa' && !phoneNumber) {
       Alert.alert('Phone Required', 'Please enter your M-Pesa phone number')
       return
@@ -579,11 +405,6 @@ const CheckoutScreen = () => {
         const sellerDeliveryFee = 0
         const sellerTotal = sellerSubtotal
 
-        // Build delivery address string from selected address
-        const deliveryAddressStr = selectedAddress
-          ? `${selectedAddress.address_line1}${selectedAddress.address_line2 ? ', ' + selectedAddress.address_line2 : ''}, ${selectedAddress.city}${selectedAddress.county ? ', ' + selectedAddress.county : ''}`
-          : 'Address not provided'
-
         // Create order
         const { data: orderData, error: orderError } = await supabase
           .from('orders')
@@ -596,8 +417,8 @@ const CheckoutScreen = () => {
             total_amount: sellerTotal,
             payment_method: paymentMethod === 'mpesa' ? 'M-Pesa' : paymentMethod === 'card' ? 'Card' : 'Cash on Delivery',
             payment_status: 'pending',
-            delivery_address: deliveryAddressStr,
-            delivery_instructions: selectedAddress ? `Phone: ${selectedAddress.phone}` : `Phone: ${phoneNumber}`,
+            delivery_address: 'Address to be confirmed',
+            delivery_instructions: `Phone: ${phoneNumber}`,
             notes: `Payment: ${paymentMethod} - FREE Delivery`,
           })
           .select()
@@ -748,45 +569,6 @@ const CheckoutScreen = () => {
               <Text style={styles.moreItems}>+ {items.length - 3} more items</Text>
             )}
           </View>
-        </View>
-
-        {/* Delivery Address */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Delivery Address</Text>
-          <TouchableOpacity
-            style={styles.addressCard}
-            onPress={handleSelectAddress}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="location-outline" size={24} color={PRIMARY} />
-            {loadingAddresses ? (
-              <View style={styles.addressContent}>
-                <ActivityIndicator size="small" color={PRIMARY} />
-                <Text style={styles.addressText}>Loading addresses...</Text>
-              </View>
-            ) : selectedAddress ? (
-              <View style={styles.addressContent}>
-                <Text style={styles.addressLabel}>{selectedAddress.label}</Text>
-                <Text style={styles.addressText}>
-                  {selectedAddress.address_line1}
-                  {selectedAddress.address_line2 ? `, ${selectedAddress.address_line2}` : ''}
-                </Text>
-                <Text style={styles.addressText}>
-                  {selectedAddress.city}
-                  {selectedAddress.county ? `, ${selectedAddress.county}` : ''}
-                </Text>
-                <Text style={styles.addressPhone}>{selectedAddress.phone}</Text>
-              </View>
-            ) : (
-              <View style={styles.addressContent}>
-                <Text style={styles.addressLabel}>No Address Selected</Text>
-                <Text style={styles.addressText}>Tap to select a delivery address</Text>
-              </View>
-            )}
-            <View style={styles.addressActions}>
-              <Ionicons name="chevron-forward" size={24} color="#999" />
-            </View>
-          </TouchableOpacity>
         </View>
 
         {/* Payment Method */}
@@ -1077,258 +859,6 @@ const CheckoutScreen = () => {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Address Selection Modal */}
-      <Modal
-        visible={addressModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setAddressModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.addressModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Delivery Address</Text>
-              <TouchableOpacity onPress={() => setAddressModalVisible(false)}>
-                <Ionicons name="close" size={28} color="#333" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Saved Addresses */}
-              <Text style={styles.subTitle}>Saved Addresses</Text>
-              {loadingAddresses ? (
-                <View style={styles.loadingAddresses}>
-                  <ActivityIndicator size="small" color={PRIMARY} />
-                  <Text style={styles.loadingAddressesText}>Loading...</Text>
-                </View>
-              ) : addresses.length === 0 ? (
-                <View style={styles.emptyAddresses}>
-                  <Ionicons name="location-outline" size={60} color="#ccc" />
-                  <Text style={styles.emptyText}>No addresses saved</Text>
-                  <Text style={styles.emptySubtext}>Add a new address below</Text>
-                </View>
-              ) : (
-                addresses.map((address) => (
-                  <TouchableOpacity
-                    key={address.id}
-                    style={[
-                      styles.addressOptionCard,
-                      selectedAddress?.id === address.id && styles.addressOptionSelected,
-                    ]}
-                    onPress={() => confirmAddressSelection(address)}
-                  >
-                    <View style={styles.addressOptionHeader}>
-                      <View style={styles.addressOptionLabel}>
-                        <Ionicons name="pricetag-outline" size={16} color={PRIMARY} />
-                        <Text style={styles.addressOptionLabelText}>{address.label}</Text>
-                        {address.is_default && (
-                          <View style={styles.defaultBadge}>
-                            <Text style={styles.defaultBadgeText}>Default</Text>
-                          </View>
-                        )}
-                      </View>
-                      {selectedAddress?.id === address.id && (
-                        <Ionicons name="checkmark-circle" size={24} color={PRIMARY} />
-                      )}
-                    </View>
-                    <View style={styles.addressOptionContent}>
-                      <Ionicons name="location-outline" size={16} color="#666" />
-                      <Text style={styles.addressOptionText}>
-                        {address.address_line1}
-                        {address.address_line2 ? `, ${address.address_line2}` : ''}
-                      </Text>
-                    </View>
-                    <View style={styles.addressOptionContent}>
-                      <Ionicons name="city-outline" size={16} color="#666" />
-                      <Text style={styles.addressOptionText}>
-                        {address.city}
-                        {address.county ? `, ${address.county}` : ''}
-                      </Text>
-                    </View>
-                    <View style={styles.addressOptionContent}>
-                      <Ionicons name="call-outline" size={16} color="#666" />
-                      <Text style={styles.addressOptionText}>{address.phone}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))
-              )}
-
-              {/* Add New Address Section */}
-              <View style={styles.divider} />
-              <Text style={styles.subTitle}>Add New Address</Text>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Label *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., Home, Work, Office"
-                  value={newAddressData.label}
-                  onChangeText={(text) => setNewAddressData({ ...newAddressData, label: text })}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Address Line 1 *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Street address, building number"
-                  value={newAddressData.address_line1}
-                  onChangeText={(text) => setNewAddressData({ ...newAddressData, address_line1: text })}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>County *</Text>
-                <TouchableOpacity
-                  style={styles.selectorInput}
-                  onPress={() => setCountyModalVisible(true)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={newAddressData.county ? styles.selectorInputText : styles.selectorPlaceholder}>
-                    {newAddressData.county || 'Select County'}
-                  </Text>
-                  <Ionicons name="chevron-down" size={20} color="#666" />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Location/Town *</Text>
-                <TouchableOpacity
-                  style={styles.selectorInput}
-                  onPress={() => {
-                    if (!newAddressData.county) {
-                      Alert.alert('Select County First', 'Please select a county first')
-                      return
-                    }
-                    setLocationModalVisible(true)
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={newAddressData.location ? styles.selectorInputText : styles.selectorPlaceholder}>
-                    {newAddressData.location || 'Select Location'}
-                  </Text>
-                  <Ionicons name="chevron-down" size={20} color="#666" />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Phone Number *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="0712 345 678"
-                  keyboardType="phone-pad"
-                  value={newAddressData.phone}
-                  onChangeText={(text) => setNewAddressData({ ...newAddressData, phone: text })}
-                />
-              </View>
-
-              <TouchableOpacity
-                style={styles.saveAddressBtn}
-                onPress={handleSaveNewAddress}
-              >
-                <Ionicons name="save-outline" size={20} color="#fff" />
-                <Text style={styles.saveAddressText}>Save Address</Text>
-              </TouchableOpacity>
-
-              <View style={{ height: 20 }} />
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* County Selection Modal */}
-      <Modal
-        visible={countyModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setCountyModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.selectionModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select County</Text>
-              <TouchableOpacity onPress={() => setCountyModalVisible(false)}>
-                <Ionicons name="close" size={28} color="#333" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.searchContainer}>
-              <Ionicons name="search" size={20} color="#666" />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search county..."
-                value={searchCounty}
-                onChangeText={setSearchCounty}
-              />
-            </View>
-
-            <FlatList
-              data={KENYA_COUNTIES.filter(c =>
-                c.name.toLowerCase().includes(searchCounty.toLowerCase())
-              )}
-              keyExtractor={(item) => item.name}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.selectionOption}
-                  onPress={() => {
-                    setNewAddressData({ ...newAddressData, county: item.name, location: '' })
-                    setCountyModalVisible(false)
-                    setSearchCounty('')
-                  }}
-                >
-                  <Text style={styles.selectionOptionText}>{item.name}</Text>
-                  {newAddressData.county === item.name && (
-                    <Ionicons name="checkmark-circle" size={24} color={PRIMARY} />
-                  )}
-                </TouchableOpacity>
-              )}
-              maxToRenderPerBatch={10}
-              windowSize={5}
-            />
-          </View>
-        </View>
-      </Modal>
-
-      {/* Location Selection Modal */}
-      <Modal
-        visible={locationModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setLocationModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.selectionModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {newAddressData.county} - Select Location
-              </Text>
-              <TouchableOpacity onPress={() => setLocationModalVisible(false)}>
-                <Ionicons name="close" size={28} color="#333" />
-              </TouchableOpacity>
-            </View>
-
-            <FlatList
-              data={KENYA_COUNTIES.find(c => c.name === newAddressData.county)?.locations || []}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.selectionOption}
-                  onPress={() => {
-                    setNewAddressData({ ...newAddressData, location: item })
-                    setLocationModalVisible(false)
-                  }}
-                >
-                  <Text style={styles.selectionOptionText}>{item}</Text>
-                  {newAddressData.location === item && (
-                    <Ionicons name="checkmark-circle" size={24} color={PRIMARY} />
-                  )}
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
-
       {/* Success Modal */}
       <Modal
         visible={successModal}
@@ -1337,23 +867,47 @@ const CheckoutScreen = () => {
         onRequestClose={() => {}}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.successCard}>
-            <View style={styles.successIcon}>
-              <Ionicons name="checkmark-circle" size={80} color="#4CAF50" />
+          <ScrollView style={{ maxHeight: '90%' }} showsVerticalScrollIndicator={false}>
+            <View style={styles.successCard}>
+              <View style={styles.successIcon}>
+                <Ionicons name="checkmark-circle" size={80} color="#4CAF50" />
+              </View>
+              <Text style={styles.successTitle}>Order Placed!</Text>
+              <Text style={styles.successText}>
+                Your order has been placed successfully. You will receive a confirmation SMS shortly.
+              </Text>
+              {orderNumber ? (
+                <Text style={styles.orderNumber}>Order #{orderNumber}</Text>
+              ) : (
+                <Text style={styles.orderNumber}>Order #ORD-2024-{Math.floor(Math.random() * 10000)}</Text>
+              )}
+
+              {/* Delivery Address Card */}
+              {selectedAddress && (
+                <View style={styles.deliveryAddressCard}>
+                  <View style={styles.deliveryAddressHeader}>
+                    <Ionicons name="location" size={20} color={PRIMARY} />
+                    <Text style={styles.deliveryAddressTitle}>Delivery Address</Text>
+                  </View>
+                  <View style={styles.deliveryAddressContent}>
+                    <Text style={styles.deliveryAddressLabel}>{selectedAddress.label}</Text>
+                    <Text style={styles.deliveryAddressText}>
+                      {selectedAddress.city}
+                      {selectedAddress.county ? `, ${selectedAddress.county}` : ''}
+                    </Text>
+                    <View style={styles.deliveryAddressPhone}>
+                      <Ionicons name="call" size={14} color="#666" />
+                      <Text style={styles.deliveryAddressPhoneText}>{selectedAddress.phone}</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              <TouchableOpacity style={styles.continueBtn} onPress={handleSuccessContinue}>
+                <Text style={styles.continueBtnText}>Continue Shopping</Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.successTitle}>Order Placed!</Text>
-            <Text style={styles.successText}>
-              Your order has been placed successfully. You will receive a confirmation SMS shortly.
-            </Text>
-            {orderNumber ? (
-              <Text style={styles.orderNumber}>Order #{orderNumber}</Text>
-            ) : (
-              <Text style={styles.orderNumber}>Order #ORD-2024-{Math.floor(Math.random() * 10000)}</Text>
-            )}
-            <TouchableOpacity style={styles.continueBtn} onPress={handleSuccessContinue}>
-              <Text style={styles.continueBtnText}>Continue Shopping</Text>
-            </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
     </LinearGradient>
@@ -1444,41 +998,6 @@ const styles = StyleSheet.create({
     color: '#888',
     fontStyle: 'italic',
     marginTop: 8,
-  },
-  addressCard: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-  },
-  addressContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  addressLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  addressText: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 2,
-  },
-  addressPhone: {
-    fontSize: 12,
-    color: '#888',
-    marginTop: 2,
-  },
-  editText: {
-    fontSize: 13,
-    color: PRIMARY,
-    fontWeight: '600',
   },
   paymentMethods: {
     gap: 10,
@@ -1893,8 +1412,50 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: PRIMARY,
-    marginBottom: 24,
+    marginBottom: 16,
     fontFamily: 'monospace',
+  },
+  deliveryAddressCard: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    padding: 16,
+    width: '100%',
+    marginBottom: 20,
+  },
+  deliveryAddressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  deliveryAddressTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PRIMARY,
+  },
+  deliveryAddressContent: {
+    gap: 4,
+  },
+  deliveryAddressLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
+  },
+  deliveryAddressText: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 18,
+  },
+  deliveryAddressPhone: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  deliveryAddressPhoneText: {
+    fontSize: 13,
+    color: '#666',
   },
   continueBtn: {
     backgroundColor: PRIMARY,
@@ -1909,72 +1470,60 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
   },
-  addressActions: {
-    padding: 8,
-  },
-  addressModalContent: {
+  addressCard: {
     backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '70%',
-    width: '100%',
+    borderRadius: 16,
+    padding: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
   },
-  modalHeader: {
+  addressContent: {
+    flex: 1,
+  },
+  addressHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    marginBottom: 10,
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#333',
-  },
-  emptyAddresses: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#888',
-    marginTop: 4,
-  },
-  addressOptionCard: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 2,
-    borderColor: '#f0f0f0',
-  },
-  addressOptionSelected: {
-    borderColor: PRIMARY,
-    backgroundColor: '#E8F5E9',
-  },
-  addressOptionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  addressOptionLabel: {
+  addressLabelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  addressOptionLabelText: {
+  addressLabel: {
     fontSize: 15,
     fontWeight: '600',
     color: PRIMARY,
+  },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  addressText: {
+    fontSize: 14,
+    color: '#666',
+    flex: 1,
+  },
+  emptyAddress: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  emptyAddressText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 10,
+  },
+  emptyAddressSubtext: {
+    fontSize: 13,
+    color: '#888',
+    marginTop: 4,
+    marginBottom: 10,
   },
   defaultBadge: {
     backgroundColor: ACCENT,
@@ -1987,141 +1536,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 9,
     fontWeight: '600',
-  },
-  addressOptionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 4,
-  },
-  addressOptionText: {
-    fontSize: 13,
-    color: '#666',
-    flex: 1,
-  },
-  addNewAddressBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginHorizontal: 16,
-    marginTop: 16,
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: '#E8F5E9',
-  },
-  addNewAddressText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: PRIMARY,
-  },
-  subTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#333',
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#f0f0f0',
-    marginHorizontal: 16,
-    marginTop: 8,
-  },
-  loadingAddresses: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  loadingAddressesText: {
-    fontSize: 14,
-    color: '#888',
-    marginTop: 8,
-  },
-  formGroup: {
-    marginHorizontal: 16,
-    marginTop: 12,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 15,
-    color: '#333',
-  },
-  selectorInput: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 10,
-    padding: 12,
-  },
-  selectorInputText: {
-    fontSize: 15,
-    color: '#333',
-  },
-  selectorPlaceholder: {
-    fontSize: 15,
-    color: '#999',
-  },
-  saveAddressBtn: {
-    flexDirection: 'row',
-    backgroundColor: PRIMARY,
-    marginHorizontal: 16,
-    marginTop: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  saveAddressText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  selectionModalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '70%',
-    width: '100%',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 10,
-    marginHorizontal: 16,
-    marginTop: 12,
-    paddingHorizontal: 12,
-  },
-  searchInput: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    fontSize: 15,
-    color: '#333',
-  },
-  selectionOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  selectionOptionText: {
-    fontSize: 15,
-    color: '#333',
-    flex: 1,
   },
 })

@@ -17,6 +17,7 @@ import CustomerTabs from './src/navigation/CustomerTabs';
 // Customer Screens
 import ProductDetailScreen from './src/screens/customer/ProductDetailScreen';
 import CheckoutScreen from './src/screens/customer/CheckoutScreen';
+import ChatScreen from './src/screens/customer/ChatScreen';
 
 // Farmer Tabs
 import FarmerTabs from './src/navigation/FarmerTabs';
@@ -156,6 +157,54 @@ export default function App() {
           <Stack.Screen
             name="HelpSupport"
             component={HelpSupportScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+
+          <Stack.Screen
+            name="TermsOfService"
+            component={TermsOfServiceScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+
+          <Stack.Screen
+            name="Coupons"
+            component={CouponsScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+
+          <Stack.Screen
+            name="DeliveryAddresses"
+            component={DeliveryAddressesScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+
+          <Stack.Screen
+            name="PaymentMethods"
+            component={PaymentMethodsScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+
+          <Stack.Screen
+            name="Orders"
+            component={OrdersScreen}
+            options={{
+              headerShown: false,
+            }}
+          />
+
+          <Stack.Screen
+            name="Chat"
+            component={ChatScreen}
             options={{
               headerShown: false,
             }}

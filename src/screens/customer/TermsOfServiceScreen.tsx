@@ -324,7 +324,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     lineHeight: 22,
-    whiteSpace: 'pre-line',
   },
   acceptBtn: {
     flexDirection: 'row',
