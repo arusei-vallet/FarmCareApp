@@ -115,6 +115,7 @@ const ProfileScreen = () => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true)
   const [locationEnabled, setLocationEnabled] = useState(true)
   const [isCardSticky, setIsCardSticky] = useState(false)
+  const [avatarUploading, setAvatarUploading] = useState(false)
 
   // Address management state
   const [addresses, setAddresses] = useState<DeliveryAddress[]>([])
@@ -429,7 +430,124 @@ const ProfileScreen = () => {
     })
 
     if (!result.canceled) {
-      setProfile({ ...profile, avatar: result.assets[0].uri })
+      const asset = result.assets[0]
+      await uploadAvatar(asset.uri)
+    }
+  }
+
+  const uploadAvatar = async (imageUri: string) => {
+    try {
+      setAvatarUploading(true)
+
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        Alert.alert('Error', 'Please login to upload image')
+        return
+      }
+
+      // Fetch the image from the URI
+      const response = await fetch(imageUri)
+      const blob = await response.blob()
+
+      // Generate a unique filename
+      const fileExt = imageUri.split('.').pop()?.toLowerCase() || 'jpg'
+      const fileName = `profile-${user.id}-${Date.now()}.${fileExt}`
+
+      // Try to upload to Supabase Storage
+      let publicUrl: string | null = null
+      let uploadSuccess = false
+
+      // Try 'images' bucket first
+      const { error: imagesError } = await supabase.storage
+        .from('images')
+        .upload(fileName, blob, {
+          cacheControl: '3600',
+          upsert: true,
+        })
+
+      if (!imagesError) {
+        const { data: urlData } = supabase.storage
+          .from('images')
+          .getPublicUrl(fileName)
+        publicUrl = urlData?.publicUrl || null
+        uploadSuccess = true
+      } else {
+        console.log('Images bucket error:', imagesError.message)
+        
+        // Try 'avatars' bucket as fallback
+        const { error: avatarsError } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, blob, {
+            cacheControl: '3600',
+            upsert: true,
+          })
+
+        if (!avatarsError) {
+          const { data: urlData } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(fileName)
+          publicUrl = urlData?.publicUrl || null
+          uploadSuccess = true
+        } else {
+          console.log('Avatars bucket error:', avatarsError.message)
+        }
+      }
+
+      // If upload succeeded, update database with public URL
+      if (uploadSuccess && publicUrl) {
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ avatar_url: publicUrl })
+          .eq('id', user.id)
+
+        if (updateError) {
+          console.error('Database update error:', updateError)
+        }
+
+        setProfile({ ...profile, avatar: publicUrl })
+        Alert.alert('Success', 'Profile image updated successfully!')
+      } else {
+        // Fallback: save local URI (works offline/development)
+        const { error: localError } = await supabase
+          .from('users')
+          .update({ avatar_url: imageUri })
+          .eq('id', user.id)
+
+        if (!localError) {
+          setProfile({ ...profile, avatar: imageUri })
+          Alert.alert(
+            'Info',
+            'Image saved locally. Cloud storage unavailable.',
+            [{ text: 'OK' }]
+          )
+        } else {
+          Alert.alert(
+            'Error',
+            'Failed to save image. Please try again.',
+            [{ text: 'OK' }]
+          )
+        }
+      }
+    } catch (error: any) {
+      console.error('Error uploading profile image:', error.message)
+      
+      // Final fallback - save local URI
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          await supabase
+            .from('users')
+            .update({ avatar_url: imageUri })
+            .eq('id', user.id)
+          setProfile({ ...profile, avatar: imageUri })
+          Alert.alert('Info', 'Image saved locally (offline mode)')
+        }
+      } catch (fallbackError) {
+        console.error('Fallback failed:', fallbackError)
+        Alert.alert('Error', 'Failed to save image. Please try again.')
+      }
+    } finally {
+      setAvatarUploading(false)
     }
   }
 
@@ -533,36 +651,45 @@ const ProfileScreen = () => {
   ]
 
   return (
-    <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={PRIMARY} />
       <ScrollView
         showsVerticalScrollIndicator={false}
-        stickyHeaderIndices={[2]}
+        stickyHeaderIndices={[1]}
         onScroll={(e) => {
           const scrollY = e.nativeEvent.contentOffset.y;
           setIsCardSticky(scrollY > 50);
         }}
         scrollEventThrottle={16}
       >
-        {/* Header Spacer */}
-        <View style={styles.headerSpacer} />
-
-        {/* Header - Scrollable */}
-        <View style={styles.headerScrollable}>
+        {/* Header - Deep Green Sticky Header */}
+        <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
           <TouchableOpacity onPress={openEditModal}>
-            <Ionicons name="create-outline" size={24} color={PRIMARY} />
+            <Ionicons name="create-outline" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
 
-        {/* Profile Card - Sticky */}
+        {/* Profile Card & Stats - Sticky */}
         <View style={isCardSticky ? styles.profileCardWrapperSticky : styles.profileCardWrapper}>
           <View style={styles.profileCardSticky}>
-            <TouchableOpacity onPress={pickAvatar} style={styles.avatarContainer}>
-              <Image source={{ uri: profile.avatar }} style={styles.avatar} />
-              <View style={styles.cameraIcon}>
-                <Ionicons name="camera" size={16} color="#fff" />
-              </View>
+            <TouchableOpacity 
+              onPress={pickAvatar} 
+              style={styles.avatarContainer}
+              disabled={avatarUploading}
+            >
+              {avatarUploading ? (
+                <View style={styles.avatarLoadingContainer}>
+                  <ActivityIndicator size="large" color={PRIMARY} />
+                </View>
+              ) : (
+                <>
+                  <Image source={{ uri: profile.avatar }} style={styles.avatar} />
+                  <View style={styles.cameraIcon}>
+                    <Ionicons name="camera" size={16} color="#fff" />
+                  </View>
+                </>
+              )}
             </TouchableOpacity>
 
             {dataLoading ? (
@@ -574,19 +701,17 @@ const ProfileScreen = () => {
               </>
             )}
           </View>
-        </View>
 
-        {/* Stats - Sticky */}
-        <View style={isCardSticky ? styles.statsWrapperSticky : styles.statsWrapper}>
+          {/* Stats */}
           {dataLoading ? (
-            <View style={styles.statsContainerSticky}>
+            <View style={styles.statsContainer}>
               <View style={styles.statBox}>
                 <ActivityIndicator size="small" color={PRIMARY} />
                 <Text style={styles.statLabel}>Loading...</Text>
               </View>
             </View>
           ) : (
-            <View style={styles.statsContainerSticky}>
+            <View style={styles.statsContainer}>
               <TouchableOpacity style={styles.statBox} onPress={() => navigation.navigate('Orders' as never)} activeOpacity={0.7}>
                 <Ionicons name="bag-outline" size={24} color={PRIMARY} />
                 <Text style={styles.statValue}>{profile.totalOrders}</Text>
@@ -880,39 +1005,69 @@ const ProfileScreen = () => {
                   />
                 </View>
 
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>County *</Text>
-                  <TouchableOpacity
-                    style={styles.selectorInput}
-                    onPress={() => setCountyModalVisible(true)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={selectedCounty ? styles.selectorInputText : styles.selectorPlaceholder}>
-                      {selectedCounty || 'Select County'}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#666" />
-                  </TouchableOpacity>
+                <View style={styles.formRow}>
+                  <View style={styles.formGroupHalf}>
+                    <Text style={styles.label}>County *</Text>
+                    <TouchableOpacity
+                      style={styles.selectorInput}
+                      onPress={() => setCountyModalVisible(true)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.selectorContent}>
+                        {selectedCounty ? (
+                          <View style={styles.selectedChip}>
+                            <Ionicons name="location" size={16} color={PRIMARY} />
+                            <Text style={styles.selectedChipText} numberOfLines={1}>{selectedCounty}</Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.selectorPlaceholder}>Select County</Text>
+                        )}
+                      </View>
+                      <Ionicons name="chevron-down" size={20} color="#666" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.formGroupHalf}>
+                    <Text style={styles.label}>Location *</Text>
+                    <TouchableOpacity
+                      style={[styles.selectorInput, !selectedCounty && styles.selectorInputDisabled]}
+                      onPress={() => {
+                        if (!selectedCounty) {
+                          Alert.alert('Select County First', 'Please select a county first')
+                          return
+                        }
+                        setLocationModalVisible(true)
+                      }}
+                      activeOpacity={0.7}
+                      disabled={!selectedCounty}
+                    >
+                      <View style={styles.selectorContent}>
+                        {selectedLocation ? (
+                          <View style={styles.selectedChip}>
+                            <Ionicons name="map" size={16} color={ACCENT} />
+                            <Text style={styles.selectedChipText} numberOfLines={1}>{selectedLocation}</Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.selectorPlaceholder}>Select Location</Text>
+                        )}
+                      </View>
+                      <Ionicons name="chevron-down" size={20} color="#666" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Location *</Text>
-                  <TouchableOpacity
-                    style={styles.selectorInput}
-                    onPress={() => {
-                      if (!selectedCounty) {
-                        Alert.alert('Select County First', 'Please select a county first')
-                        return
-                      }
-                      setLocationModalVisible(true)
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={selectedLocation ? styles.selectorInputText : styles.selectorPlaceholder}>
-                      {selectedLocation || 'Select Location'}
+                {/* Selected Address Preview */}
+                {(selectedCounty || selectedLocation) && (
+                  <View style={styles.addressPreview}>
+                    <View style={styles.previewHeader}>
+                      <Ionicons name="information-circle" size={18} color={PRIMARY} />
+                      <Text style={styles.previewTitle}>Address Preview</Text>
+                    </View>
+                    <Text style={styles.previewText}>
+                      {selectedLocation || 'Location'}{selectedCounty ? `, ${selectedCounty}` : ''}
                     </Text>
-                    <Ionicons name="chevron-down" size={20} color="#666" />
-                  </TouchableOpacity>
-                </View>
+                  </View>
+                )}
 
                 <View style={styles.formGroup}>
                   <Text style={styles.label}>Phone Number *</Text>
@@ -954,21 +1109,47 @@ const ProfileScreen = () => {
       <Modal visible={countyModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.selectionModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select County</Text>
-              <TouchableOpacity onPress={() => setCountyModalVisible(false)}>
-                <Ionicons name="close" size={28} color="#333" />
+            <LinearGradient colors={['#1B5E20', '#2E7D32', '#4CAF50']} style={styles.countyModalHeader}>
+              <View style={styles.modalHeaderContent}>
+                <View style={styles.headerIconContainer}>
+                  <Ionicons name="location" size={28} color="#fff" />
+                </View>
+                <View style={styles.headerTextContainer}>
+                  <Text style={styles.countyModalTitle}>Select County</Text>
+                  <Text style={styles.countyModalSubtitle}>Choose your delivery county</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.closeButtonWhite}
+                onPress={() => setCountyModalVisible(false)}
+              >
+                <Ionicons name="close-circle" size={32} color="#fff" />
               </TouchableOpacity>
-            </View>
+            </LinearGradient>
 
-            <View style={styles.searchContainer}>
-              <Ionicons name="search" size={20} color="#666" />
+            <View style={styles.searchContainerEnhanced}>
+              <View style={styles.searchIconBox}>
+                <Ionicons name="search" size={22} color="#666" />
+              </View>
               <TextInput
-                style={styles.searchInput}
+                style={styles.searchInputEnhanced}
                 placeholder="Search county..."
                 value={searchCounty}
                 onChangeText={setSearchCounty}
+                placeholderTextColor="#999"
               />
+              {searchCounty.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchCounty('')} style={styles.clearButton}>
+                  <Ionicons name="close-circle" size={24} color="#999" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.countiesCountEnhanced}>
+              <Ionicons name="layers" size={16} color={PRIMARY} />
+              <Text style={styles.countiesCountTextEnhanced}>
+                {KENYA_COUNTIES.filter(c => c.name.toLowerCase().includes(searchCounty.toLowerCase())).length} counties available
+              </Text>
             </View>
 
             <FlatList
@@ -976,9 +1157,13 @@ const ProfileScreen = () => {
                 c.name.toLowerCase().includes(searchCounty.toLowerCase())
               )}
               keyExtractor={(item) => item.name}
-              renderItem={({ item }) => (
+              renderItem={({ item, index }) => (
                 <TouchableOpacity
-                  style={styles.selectionOption}
+                  style={[
+                    styles.countyCard,
+                    selectedCounty === item.name && styles.countyCardSelected,
+                    index === 0 && styles.countyCardFirst,
+                  ]}
                   onPress={() => {
                     setSelectedCounty(item.name)
                     setAddressFormData({ ...addressFormData, county: item.name })
@@ -986,12 +1171,55 @@ const ProfileScreen = () => {
                     setCountyModalVisible(false)
                     setSearchCounty('')
                   }}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.selectionOptionText}>{item.name}</Text>
+                  <View style={styles.countyCardLeft}>
+                    <View style={[
+                      styles.countyNumberBadge,
+                      selectedCounty === item.name && styles.countyNumberBadgeSelected,
+                    ]}>
+                      <Text style={[
+                        styles.countyNumberText,
+                        selectedCounty === item.name && styles.countyNumberTextSelected,
+                      ]}>
+                        {index + 1}
+                      </Text>
+                    </View>
+                    <View style={[
+                      styles.countyIconCard,
+                      selectedCounty === item.name && styles.countyIconCardSelected,
+                    ]}>
+                      <Ionicons 
+                        name={selectedCounty === item.name ? 'location' : 'location-outline'} 
+                        size={22} 
+                        color={selectedCounty === item.name ? '#fff' : PRIMARY} 
+                      />
+                    </View>
+                    <View style={styles.countyInfo}>
+                      <Text style={[
+                        styles.countyNameText,
+                        selectedCounty === item.name && styles.countyNameTextSelected,
+                      ]}>
+                        {item.name}
+                      </Text>
+                      <Text style={styles.countyLocationsText}>
+                        {item.locations.length} locations available
+                      </Text>
+                    </View>
+                  </View>
                   {selectedCounty === item.name && (
-                    <Ionicons name="checkmark-circle" size={24} color={PRIMARY} />
+                    <View style={styles.selectedIndicator}>
+                      <Ionicons name="checkmark-circle" size={32} color={PRIMARY} />
+                    </View>
                   )}
                 </TouchableOpacity>
+              )}
+              ListEmptyComponent={() => (
+                <View style={styles.emptyState}>
+                  <Ionicons name="search-outline" size={48} color="#ccc" />
+                  <Text style={styles.emptyStateText}>No counties found</Text>
+                  <Text style={styles.emptyStateSubtext}>Try a different search term</Text>
+                </View>
               )}
             />
           </View>
@@ -1002,59 +1230,115 @@ const ProfileScreen = () => {
       <Modal visible={locationModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.selectionModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {selectedCounty} - Select Location
-              </Text>
-              <TouchableOpacity onPress={() => setLocationModalVisible(false)}>
-                <Ionicons name="close" size={28} color="#333" />
+            <LinearGradient colors={['#2E7D32', '#43A047', '#66BB6A']} style={styles.locationModalHeader}>
+              <View style={styles.modalHeaderContent}>
+                <View style={styles.headerIconContainer}>
+                  <Ionicons name="map" size={28} color="#fff" />
+                </View>
+                <View style={styles.headerTextContainer}>
+                  <Text style={styles.locationModalTitle}>Select Location</Text>
+                  <Text style={styles.locationModalSubtitle}>{selectedCounty}</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.closeButtonWhite}
+                onPress={() => setLocationModalVisible(false)}
+              >
+                <Ionicons name="close-circle" size={32} color="#fff" />
               </TouchableOpacity>
+            </LinearGradient>
+
+            <View style={styles.locationsCountEnhanced}>
+              <Ionicons name="navigate" size={16} color={ACCENT} />
+              <Text style={styles.locationsCountTextEnhanced}>
+                {KENYA_COUNTIES.find(c => c.name === selectedCounty)?.locations.length || 0} locations available
+              </Text>
             </View>
 
             <FlatList
               data={KENYA_COUNTIES.find(c => c.name === selectedCounty)?.locations || []}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
+              keyExtractor={(item, index) => `${item}-${index}`}
+              renderItem={({ item, index }) => (
                 <TouchableOpacity
-                  style={styles.selectionOption}
+                  style={[
+                    styles.locationCard,
+                    selectedLocation === item && styles.locationCardSelected,
+                    index === 0 && styles.locationCardFirst,
+                  ]}
                   onPress={() => {
                     setSelectedLocation(item)
                     setAddressFormData({ ...addressFormData, city: item })
                     setLocationModalVisible(false)
                   }}
+                  activeOpacity={0.7}
                 >
-                  <Text style={styles.selectionOptionText}>{item}</Text>
+                  <View style={styles.locationCardLeft}>
+                    <View style={[
+                      styles.locationNumberBadge,
+                      selectedLocation === item && styles.locationNumberBadgeSelected,
+                    ]}>
+                      <Text style={[
+                        styles.locationNumberText,
+                        selectedLocation === item && styles.locationNumberTextSelected,
+                      ]}>
+                        {index + 1}
+                      </Text>
+                    </View>
+                    <View style={[
+                      styles.locationIconCard,
+                      selectedLocation === item && styles.locationIconCardSelected,
+                    ]}>
+                      <Ionicons 
+                        name={selectedLocation === item ? 'navigate' : 'navigate-outline'} 
+                        size={20} 
+                        color={selectedLocation === item ? '#fff' : ACCENT} 
+                      />
+                    </View>
+                    <View style={styles.locationInfo}>
+                      <Text style={[
+                        styles.locationNameText,
+                        selectedLocation === item && styles.locationNameTextSelected,
+                      ]}>
+                        {item}
+                      </Text>
+                    </View>
+                  </View>
                   {selectedLocation === item && (
-                    <Ionicons name="checkmark-circle" size={24} color={PRIMARY} />
+                    <View style={styles.selectedIndicator}>
+                      <Ionicons name="checkmark-circle" size={32} color={ACCENT} />
+                    </View>
                   )}
                 </TouchableOpacity>
+              )}
+              ListEmptyComponent={() => (
+                <View style={styles.emptyState}>
+                  <Ionicons name="map-outline" size={48} color="#ccc" />
+                  <Text style={styles.emptyStateText}>No locations found</Text>
+                  <Text style={styles.emptyStateSubtext}>This county has no locations listed</Text>
+                </View>
               )}
             />
           </View>
         </View>
       </Modal>
-    </LinearGradient>
+    </View>
   )
 }
 
 export default ProfileScreen
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  headerSpacer: {
-    height: 50,
-    backgroundColor: '#f5f9f5',
-  },
-  headerScrollable: {
+  container: { flex: 1, backgroundColor: '#F4F7F5' },
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 10,
-    backgroundColor: '#f5f9f5',
+    paddingTop: 50,
+    paddingBottom: 16,
+    backgroundColor: PRIMARY,
   },
-  headerTitle: { fontSize: 28, fontWeight: '700', color: PRIMARY },
+  headerTitle: { fontSize: 28, fontWeight: '700', color: '#fff' },
   profileCardWrapper: {
     backgroundColor: '#f5f9f5',
     paddingHorizontal: 20,
@@ -1067,9 +1351,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
     zIndex: 1000,
   },
   profileCardSticky: {
@@ -1081,8 +1365,19 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 12,
+    marginBottom: 10,
   },
   avatarContainer: { position: 'relative', marginBottom: 16 },
+  avatarLoadingContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
+    borderColor: PRIMARY,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   avatar: {
     width: 100,
     height: 100,
@@ -1118,6 +1413,16 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
     zIndex: 1000,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
   },
   statsContainerSticky: {
     flexDirection: 'row',
@@ -1223,6 +1528,20 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   modalTitle: { fontSize: 20, fontWeight: '700', color: PRIMARY, marginBottom: 20, textAlign: 'center' },
+  modalTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  closeButton: {
+    padding: 4,
+  },
   input: {
     backgroundColor: '#f5fff5',
     borderWidth: 1,
@@ -1366,6 +1685,14 @@ const styles = StyleSheet.create({
   formGroup: {
     marginBottom: 16,
   },
+  formRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  formGroupHalf: {
+    flex: 1,
+  },
   label: {
     fontSize: 13,
     fontWeight: '600',
@@ -1381,6 +1708,16 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
     borderRadius: 12,
     padding: 14,
+    minHeight: 50,
+  },
+  selectorInputDisabled: {
+    backgroundColor: '#f5f5f5',
+    opacity: 0.6,
+  },
+  selectorContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   selectorInputText: {
     fontSize: 15,
@@ -1390,11 +1727,247 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#999',
   },
+  selectedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    flex: 1,
+  },
+  selectedChipText: {
+    fontSize: 14,
+    color: PRIMARY,
+    fontWeight: '600',
+    flex: 1,
+  },
+  addressPreview: {
+    backgroundColor: '#E3F2FD',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    gap: 8,
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  previewTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: PRIMARY,
+  },
+  previewText: {
+    fontSize: 14,
+    color: '#333',
+    paddingLeft: 24,
+  },
   selectionModalContent: {
     backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '70%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '75%',
+  },
+  countyModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  modalHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  headerIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  countyModalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 2,
+  },
+  countyModalSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.85)',
+  },
+  closeButtonWhite: {
+    padding: 4,
+  },
+  searchContainerEnhanced: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 14,
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  searchIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  searchInputEnhanced: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    fontSize: 15,
+    color: '#333',
+  },
+  clearButton: {
+    padding: 4,
+  },
+  countiesCountEnhanced: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#E8F5E9',
+    marginHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  countiesCountTextEnhanced: {
+    fontSize: 13,
+    color: PRIMARY,
+    fontWeight: '600',
+  },
+  locationModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  locationModalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 2,
+  },
+  locationModalSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.85)',
+  },
+  locationsCountEnhanced: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: '#E3F2FD',
+    marginHorizontal: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  locationsCountTextEnhanced: {
+    fontSize: 13,
+    color: ACCENT,
+    fontWeight: '600',
+  },
+  locationCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginHorizontal: 16,
+    marginVertical: 4,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
+  },
+  locationCardFirst: {
+    marginTop: 8,
+  },
+  locationCardSelected: {
+    backgroundColor: '#E3F2FD',
+    borderColor: ACCENT,
+    borderWidth: 2,
+    shadowColor: ACCENT,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  locationCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  locationNumberBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  locationNumberBadgeSelected: {
+    backgroundColor: ACCENT,
+  },
+  locationNumberText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#666',
+  },
+  locationNumberTextSelected: {
+    color: '#fff',
+  },
+  locationIconCard: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#E3F2FD',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  locationIconCardSelected: {
+    backgroundColor: ACCENT,
+  },
+  locationInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  locationNameText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+  },
+  locationNameTextSelected: {
+    color: ACCENT,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -1421,9 +1994,152 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
+  countyCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginHorizontal: 16,
+    marginVertical: 4,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
+  },
+  countyCardFirst: {
+    marginTop: 8,
+  },
+  countyCardSelected: {
+    backgroundColor: '#E8F5E9',
+    borderColor: PRIMARY,
+    borderWidth: 2,
+    shadowColor: PRIMARY,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  countyCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  countyNumberBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  countyNumberBadgeSelected: {
+    backgroundColor: PRIMARY,
+  },
+  countyNumberText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#666',
+  },
+  countyNumberTextSelected: {
+    color: '#fff',
+  },
+  countyIconCard: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#E8F5E9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  countyIconCardSelected: {
+    backgroundColor: PRIMARY,
+  },
+  countyInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  countyNameText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+  },
+  countyNameTextSelected: {
+    color: PRIMARY,
+  },
+  countyLocationsText: {
+    fontSize: 12,
+    color: '#888',
+  },
+  selectedIndicator: {
+    paddingLeft: 8,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 32,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 16,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 6,
+  },
+  selectionOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  countyIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E8F5E9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  locationIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#E3F2FD',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   selectionOptionText: {
     fontSize: 15,
     color: '#333',
     flex: 1,
+  },
+  selectedCheck: {
+    paddingLeft: 8,
+  },
+  countiesCount: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#f5f5f5',
+  },
+  countiesCountText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
+  locationsCount: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#f5f5f5',
+  },
+  locationsCountText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
   },
 })

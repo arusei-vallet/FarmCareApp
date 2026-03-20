@@ -211,13 +211,13 @@ const RegisterScreen = () => {
                 placeholder="Password"
                 placeholderTextColor="#9e9e9e"
                 secureTextEntry={!showPassword}
-                style={styles.input}
+                style={[styles.input, styles.passwordInput]}
                 value={password}
                 onChangeText={setPassword}
                 onFocus={() => handleFieldFocus('password', passwordBorderAnim)}
                 onBlur={() => handleFieldBlur(passwordBorderAnim)}
               />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.passwordToggle}>
                 <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={22} color="#2e7d32" />
               </TouchableOpacity>
             </Animated.View>
@@ -229,13 +229,13 @@ const RegisterScreen = () => {
                 placeholder="Confirm Password"
                 placeholderTextColor="#9e9e9e"
                 secureTextEntry={!showConfirmPassword}
-                style={styles.input}
+                style={[styles.input, styles.passwordInput]}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 onFocus={() => handleFieldFocus('confirmPassword', confirmPasswordBorderAnim)}
                 onBlur={() => handleFieldBlur(confirmPasswordBorderAnim)}
               />
-              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+              <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.passwordToggle}>
                 <Ionicons name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'} size={22} color="#2e7d32" />
               </TouchableOpacity>
             </Animated.View>
@@ -367,7 +367,17 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
   },
   icon: { marginRight: 12 },
-  input: { flex: 1, fontSize: 15 },
+  input: { 
+    flex: 1, 
+    fontSize: 15,
+    color: '#333',
+  },
+  passwordInput: {
+    paddingRight: 10,
+  },
+  passwordToggle: {
+    padding: 4,
+  },
   roleDropdown: {
     justifyContent: 'space-between',
     backgroundColor: '#fff',

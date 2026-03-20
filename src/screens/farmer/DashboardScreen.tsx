@@ -418,8 +418,8 @@ const Dashboard: React.FC = () => {
   const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
   return (
-    <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={{ flex: 1 }}>
-      {/* Fixed Header */}
+    <View style={styles.container}>
+      {/* Fixed Header - Deep Green Sticky Header */}
       <View style={styles.fixedHeader}>
         <View style={styles.header}>
           <View>
@@ -434,7 +434,7 @@ const Dashboard: React.FC = () => {
               onPress={() => setNotificationsModalVisible(true)}
               style={styles.notificationBtn}
             >
-              <Ionicons name="notifications-outline" size={24} color="#1b5e20" />
+              <Ionicons name="notifications-outline" size={24} color="#fff" />
               {notificationCount > 0 && (
                 <View style={styles.notificationBadge}>
                   <Text style={styles.notificationCount}>{notificationCount > 9 ? '9+' : notificationCount}</Text>
@@ -443,7 +443,7 @@ const Dashboard: React.FC = () => {
             </TouchableOpacity>
 
             <TouchableOpacity onPress={handleLogout} style={styles.logout}>
-              <Ionicons name="log-out-outline" size={24} color="#c62828" />
+              <Ionicons name="log-out-outline" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>

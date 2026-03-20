@@ -1,16 +1,12 @@
 export default {
   expo: {
-    name: "farmcare-expo",
-    slug: "farmcare-expo",
+    name: "farmcare",
+    slug: "farmcare",
     version: "1.0.0",
-    owner: "farmcare-expo",
+    owner: "farmcare",
     orientation: "portrait",
     userInterfaceStyle: "light",
     newArchEnabled: true,
-    splash: {
-      resizeMode: "contain",
-      backgroundColor: "#2ECC71"
-    },
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.farmcareexpo.app"

@@ -421,11 +421,11 @@ const CategoriesScreen = () => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle="light-content" backgroundColor={PRIMARY} />
 
-      {/* Header with Gradient */}
-      <LinearGradient colors={currentCategoryInfo.gradient} style={styles.headerGradient}>
-        <View style={styles.header}>
+      {/* Header - Deep Green Sticky Header */}
+      <View style={styles.header}>
+        <View style={styles.headerTop}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
@@ -459,7 +459,7 @@ const CategoriesScreen = () => {
             )}
           </View>
         </View>
-      </LinearGradient>
+      </View>
 
       {/* Category Pills */}
       <View style={styles.categoriesWrapper}>
@@ -664,12 +664,15 @@ export default CategoriesScreen
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: LIGHT_BG },
-  headerGradient: {
+  header: {
+    backgroundColor: PRIMARY,
     paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 16,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
   },
-  header: {
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

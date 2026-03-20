@@ -10,10 +10,10 @@ import {
   Alert,
   Dimensions,
 } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Ionicons from 'react-native-vector-icons/Ionicons'
-import { LinearGradient } from 'expo-linear-gradient'
 import { useCart, Product } from './CartContext'
 
 const { width } = Dimensions.get('window')
@@ -99,21 +99,22 @@ const ProductDetailScreen = () => {
   const totalPrice = (parseFloat(product.price.replace(/[^0-9.]/g, '')) || 0) * quantity
 
   return (
-    <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={{ flex: 1 }}>
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={PRIMARY} />
 
-      {/* Header */}
+      {/* Header - Deep Green Sticky Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
-          <Ionicons name="arrow-back" size={24} color={PRIMARY} />
+          <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
 
         <View style={styles.headerActions}>
           <TouchableOpacity style={styles.headerBtn}>
-            <Ionicons name="share-outline" size={24} color={PRIMARY} />
+            <Ionicons name="share-outline" size={24} color="#fff" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.headerBtn}>
-            <Ionicons name="heart-outline" size={24} color={PRIMARY} />
+            <Ionicons name="heart-outline" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
@@ -260,6 +261,7 @@ const ProductDetailScreen = () => {
           <Text style={styles.addToCartText}>Add to Cart</Text>
         </TouchableOpacity>
       </View>
+      </View>
     </LinearGradient>
   )
 }
@@ -267,7 +269,7 @@ const ProductDetailScreen = () => {
 export default ProductDetailScreen
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: 'transparent' },
   errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
@@ -276,15 +278,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 50,
     paddingBottom: 10,
+    backgroundColor: PRIMARY,
   },
   headerBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 2,
   },
   headerActions: {
     flexDirection: 'row',

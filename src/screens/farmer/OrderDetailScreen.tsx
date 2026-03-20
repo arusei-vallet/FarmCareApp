@@ -60,13 +60,11 @@ const OrderDetailScreen = ({ navigation, route }: any) => {
   const [statusModalVisible, setStatusModalVisible] = useState(false)
   const [updatingStatus, setUpdatingStatus] = useState(false)
 
+  // Simplified status options for farmer: Pending, Accepted, Rejected
   const statusOptions = [
     { value: 'pending', label: 'Pending', icon: 'time-outline', color: '#ff9800' },
-    { value: 'confirmed', label: 'Confirmed', icon: 'checkmark-circle-outline', color: '#4caf50' },
-    { value: 'processing', label: 'Processing', icon: 'settings-outline', color: '#ff9800' },
-    { value: 'shipped', label: 'Shipped', icon: 'truck-outline', color: '#1976d2' },
-    { value: 'delivered', label: 'Delivered', icon: 'checkmark-done-circle-outline', color: '#2e7d32' },
-    { value: 'cancelled', label: 'Cancelled', icon: 'close-circle-outline', color: '#c62828' },
+    { value: 'accepted', label: 'Accepted', icon: 'checkmark-circle-outline', color: '#4caf50' },
+    { value: 'rejected', label: 'Rejected', icon: 'close-circle-outline', color: '#c62828' },
   ]
 
   useEffect(() => {
@@ -76,22 +74,36 @@ const OrderDetailScreen = ({ navigation, route }: any) => {
   const fetchOrderDetails = async () => {
     setLoading(true)
     try {
-      // Fetch order details
+      // First fetch order details
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
-        .select(`
-          *,
-          customer:users!orders_customer_id_fkey (
-            full_name,
-            phone,
-            email
-          )
-        `)
+        .select('*')
         .eq('id', orderId)
         .single()
 
       if (orderError) throw orderError
-      setOrder(orderData)
+
+      // Fetch customer details separately if customer_id exists
+      let customerData = null
+      if (orderData.customer_id) {
+        const { data: customer, error: customerError } = await supabase
+          .from('users')
+          .select('full_name, phone, email')
+          .eq('id', orderData.customer_id)
+          .single()
+
+        if (!customerError && customer) {
+          customerData = customer
+        }
+      }
+
+      // Combine order with customer data
+      const orderWithCustomer = {
+        ...orderData,
+        customer: customerData
+      }
+
+      setOrder(orderWithCustomer)
 
       // Fetch order items
       const { data: itemsData, error: itemsError } = await supabase
@@ -102,7 +114,8 @@ const OrderDetailScreen = ({ navigation, route }: any) => {
       if (itemsError) throw itemsError
       setItems(itemsData || [])
     } catch (err: any) {
-      Alert.alert('Error', err.message)
+      console.error('Error fetching order details:', err)
+      Alert.alert('Error', 'Failed to load order details: ' + err.message)
     } finally {
       setLoading(false)
     }
@@ -113,12 +126,18 @@ const OrderDetailScreen = ({ navigation, route }: any) => {
 
     setUpdatingStatus(true)
     try {
-      const updateData: any = { status: newStatus }
-      
-      if (newStatus === 'delivered') {
-        updateData.delivered_at = new Date().toISOString()
-      } else if (newStatus === 'cancelled') {
-        updateData.cancelled_at = new Date().toISOString()
+      const updateData: any = { 
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      }
+
+      // Set rejected_at when order is rejected
+      if (newStatus === 'rejected') {
+        updateData.rejected_at = new Date().toISOString()
+      }
+      // Set accepted_at when order is accepted
+      if (newStatus === 'accepted') {
+        updateData.accepted_at = new Date().toISOString()
       }
 
       const { error } = await supabase
@@ -128,11 +147,12 @@ const OrderDetailScreen = ({ navigation, route }: any) => {
 
       if (error) throw error
 
-      Alert.alert('Success', `Order status updated to ${newStatus}`)
+      Alert.alert('Success', `Order ${newStatus.toLowerCase()} successfully`)
       setStatusModalVisible(false)
       fetchOrderDetails()
     } catch (err: any) {
-      Alert.alert('Error', err.message)
+      console.error('Error updating status:', err)
+      Alert.alert('Error', 'Failed to update order status: ' + err.message)
     } finally {
       setUpdatingStatus(false)
     }
@@ -140,12 +160,9 @@ const OrderDetailScreen = ({ navigation, route }: any) => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'delivered': return '#2e7d32'
+      case 'accepted': return '#4caf50'
       case 'pending': return '#ff9800'
-      case 'confirmed': return '#4caf50'
-      case 'processing': return '#ff9800'
-      case 'shipped': return '#1976d2'
-      case 'cancelled': return '#c62828'
+      case 'rejected': return '#c62828'
       default: return '#999'
     }
   }
@@ -367,11 +384,15 @@ const OrderDetailScreen = ({ navigation, route }: any) => {
         animationType="slide"
         onRequestClose={() => setStatusModalVisible(false)}
       >
-        <TouchableWithoutFeedback onPress={() => setStatusModalVisible(false)}>
-          <View style={styles.modalOverlay} />
-        </TouchableWithoutFeedback>
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity 
+            style={styles.modalOverlayTouchable} 
+            activeOpacity={1}
+            onPress={() => setStatusModalVisible(false)}
+          />
+        </View>
 
-        <View style={styles.statusModalContent}>
+        <View style={styles.statusModalContent} pointerEvents="box-none">
           <View style={styles.statusModalHeader}>
             <Text style={styles.statusModalTitle}>Update Order Status</Text>
             <TouchableOpacity onPress={() => setStatusModalVisible(false)}>
@@ -381,7 +402,7 @@ const OrderDetailScreen = ({ navigation, route }: any) => {
 
           <Text style={styles.statusModalSubtitle}>Select new status for {order.order_number}</Text>
 
-          <ScrollView style={styles.statusOptionsScroll} nestedScrollEnabled>
+          <ScrollView style={styles.statusOptionsScroll} nestedScrollEnabled showsVerticalScrollIndicator={false}>
             {statusOptions.map((option) => {
               const isCurrentStatus = order.status === option.value
               const isDisabled = isCurrentStatus || updatingStatus
@@ -394,7 +415,11 @@ const OrderDetailScreen = ({ navigation, route }: any) => {
                     isCurrentStatus && styles.statusOptionCurrent,
                     isDisabled && styles.statusOptionDisabled,
                   ]}
-                  onPress={() => !isDisabled && updateOrderStatus(option.value)}
+                  onPress={() => {
+                    if (!isDisabled) {
+                      updateOrderStatus(option.value)
+                    }
+                  }}
                   disabled={isDisabled}
                   activeOpacity={0.7}
                 >
@@ -414,10 +439,10 @@ const OrderDetailScreen = ({ navigation, route }: any) => {
                   {updatingStatus && isCurrentStatus ? (
                     <ActivityIndicator size="small" color={option.color} />
                   ) : (
-                    <Ionicons 
-                      name={isCurrentStatus ? 'checkmark-circle' : 'chevron-forward'} 
-                      size={20} 
-                      color={isCurrentStatus ? option.color : '#9e9e9e'} 
+                    <Ionicons
+                      name={isCurrentStatus ? 'checkmark-circle' : 'chevron-forward'}
+                      size={20}
+                      color={isCurrentStatus ? option.color : '#9e9e9e'}
                     />
                   )}
                 </TouchableOpacity>
@@ -742,17 +767,22 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalOverlayTouchable: {
+    flex: 1,
   },
   statusModalContent: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: '#fff',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
     maxHeight: '70%',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   statusModalHeader: {
     flexDirection: 'row',

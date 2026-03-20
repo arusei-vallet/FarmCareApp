@@ -264,7 +264,7 @@ const DeliveryAddressesScreen = () => {
         const { error } = await supabase
           .from('delivery_addresses')
           .insert({
-            customer_id: customerId,
+            customer_id: user.id,
             label: formData.label,
             address_line1: formData.city,
             city: formData.city,
@@ -605,10 +605,10 @@ const DeliveryAddressesScreen = () => {
                       styles.countyIconContainer,
                       selectedCounty === item.name && styles.countyIconContainerSelected,
                     ]}>
-                      <Ionicons 
-                        name="location" 
-                        size={20} 
-                        color={selectedCounty === item.name ? '#fff' : PRIMARY} 
+                      <Ionicons
+                        name="location"
+                        size={24}
+                        color={selectedCounty === item.name ? '#fff' : PRIMARY}
                       />
                     </View>
                     <Text style={[
@@ -620,7 +620,7 @@ const DeliveryAddressesScreen = () => {
                   </View>
                   {selectedCounty === item.name && (
                     <View style={styles.selectedCheckmark}>
-                      <Ionicons name="checkmark-circle" size={24} color={PRIMARY} />
+                      <Ionicons name="checkmark-circle" size={26} color={PRIMARY} />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -748,14 +748,16 @@ const styles = StyleSheet.create({
   },
   addressCard: {
     backgroundColor: '#fff',
-    marginHorizontal: 20,
+    marginHorizontal: 12,
     marginTop: 16,
     borderRadius: 16,
-    padding: 16,
-    elevation: 2,
+    padding: 18,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E8F5E9',
   },
   addressHeader: {
     flexDirection: 'row',
@@ -832,7 +834,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   formGroup: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingBottom: 16,
   },
   formRow: {
@@ -879,19 +881,50 @@ const styles = StyleSheet.create({
   },
   selectionModalContent: {
     backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '70%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '75%',
     paddingBottom: 30,
+    marginHorizontal: 8,
+  },
+  countySearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f7f0',
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
+  },
+  countySearchInput: {
+    flex: 1,
+    paddingVertical: 0,
+    paddingHorizontal: 12,
+    fontSize: 15,
+    marginLeft: 8,
+  },
+  locationSearchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+    paddingHorizontal: 16,
+    marginBottom: 10,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f5f5f5',
     borderRadius: 12,
-    marginHorizontal: 20,
-    marginTop: 10,
-    paddingHorizontal: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+    paddingHorizontal: 16,
     marginBottom: 10,
   },
   searchInput: {
@@ -904,8 +937,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
@@ -942,5 +975,97 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     fontSize: 16,
+  },
+  countySelectionModal: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+    paddingBottom: 10,
+    marginHorizontal: 8,
+  },
+  countyModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+  },
+  countyHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  countyModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  closeButton: {
+    padding: 0,
+  },
+  resultsCount: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#f9f9f9',
+    marginHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  resultsCountText: {
+    fontSize: 13,
+    color: '#666',
+    fontWeight: '500',
+  },
+  countyOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    backgroundColor: '#fff',
+    minHeight: 60,
+  },
+  countyOptionFirst: {
+    borderTopWidth: 0,
+  },
+  countyOptionSelected: {
+    backgroundColor: '#E8F5E9',
+  },
+  countyOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  countyIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E8F5E9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  countyIconContainerSelected: {
+    backgroundColor: PRIMARY,
+  },
+  countyOptionText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+    flex: 1,
+  },
+  countyOptionTextSelected: {
+    color: PRIMARY,
+    fontWeight: '600',
+  },
+  selectedCheckmark: {
+    marginLeft: 12,
+  },
+  countySeparator: {
+    height: 1,
+    backgroundColor: '#f5f5f5',
   },
 })

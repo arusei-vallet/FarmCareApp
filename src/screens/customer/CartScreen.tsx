@@ -12,7 +12,6 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import Ionicons from 'react-native-vector-icons/Ionicons'
-import { LinearGradient } from 'expo-linear-gradient'
 import { useCart, CartItem, Product } from './CartContext'
 
 const PRIMARY = '#1B5E20'
@@ -148,8 +147,11 @@ const CartScreen: React.FC = () => {
 
   if (cartItems.length === 0) {
     return (
-      <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={styles.container}>
-        <StatusBar barStyle="dark-content" />
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={PRIMARY} />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>My Cart (0)</Text>
+        </View>
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIcon}>
             <Ionicons name="cart-outline" size={80} color={PRIMARY} />
@@ -165,15 +167,15 @@ const CartScreen: React.FC = () => {
             <Text style={styles.shopBtnText}>Start Shopping</Text>
           </TouchableOpacity>
         </View>
-      </LinearGradient>
+      </View>
     )
   }
 
   return (
-    <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={PRIMARY} />
 
-      {/* Header */}
+      {/* Header - Deep Green Sticky Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Cart ({cartItems.length})</Text>
         <TouchableOpacity onPress={selectAll}>
@@ -229,14 +231,14 @@ const CartScreen: React.FC = () => {
           <Ionicons name="arrow-forward" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
-    </LinearGradient>
+    </View>
   )
 }
 
 export default CartScreen
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: '#F4F7F5' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -244,9 +246,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 16,
-    backgroundColor: '#fff',
+    backgroundColor: PRIMARY,
   },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: PRIMARY },
+  headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff' },
   selectAllText: { fontSize: 14, color: PRIMARY, fontWeight: '600' },
   cartList: {
     paddingHorizontal: 16,

@@ -92,6 +92,8 @@ export const initiateSTKPush = async ({
   transactionDesc: string
 }) => {
   try {
+    console.log('Initiating STK Push:', { phoneNumber, amount, accountReference })
+    
     // Call our Supabase Edge Function instead of Daraja directly
     // This keeps API keys secure on the server
     const { data, error } = await supabase.functions.invoke('mpesa-stk-push', {
@@ -103,12 +105,23 @@ export const initiateSTKPush = async ({
       },
     })
 
+    console.log('STK Push response:', { data, error })
+
     if (error) {
-      throw error
+      console.error('M-Pesa function error:', error)
+      throw new Error(error.message || 'Failed to initiate STK push')
     }
 
-    if (!data || !data.CheckoutRequestID) {
-      throw new Error('Invalid response from M-Pesa service')
+    if (!data) {
+      throw new Error('No response from M-Pesa service')
+    }
+
+    if (data.error) {
+      throw new Error(data.error)
+    }
+
+    if (!data.CheckoutRequestID) {
+      throw new Error('Invalid response from M-Pesa service: No CheckoutRequestID')
     }
 
     return {
@@ -120,7 +133,7 @@ export const initiateSTKPush = async ({
     }
   } catch (error: any) {
     console.error('STK Push error:', error)
-    throw new Error(error.message || 'Failed to initiate STK push')
+    throw error
   }
 }
 

@@ -1,15 +1,11 @@
 // App.tsx
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { supabase } from './src/services/supabase';
 
 // Error Boundary
 import ErrorBoundary from './src/components/ErrorBoundary';
-
-// Loading
-import { LoadingScreen } from './src/components/LoadingOverlay';
 
 // Customer Tabs
 import CustomerTabs from './src/navigation/CustomerTabs';
@@ -48,7 +44,6 @@ const Stack = createNativeStackNavigator();
 const PRIMARY = '#1B5E20';
 
 export default function App() {
-  const [isReady, setIsReady] = useState(false);
   const [initialRoute, setInitialRoute] = useState('Onboarding');
 
   useEffect(() => {
@@ -72,14 +67,9 @@ export default function App() {
           } else {
             setInitialRoute('Login');
           }
-        } else {
-          setInitialRoute('Onboarding');
         }
       } catch (e) {
         console.warn('App init error:', e);
-        setInitialRoute('Onboarding');
-      } finally {
-        setIsReady(true);
       }
     };
 
@@ -94,10 +84,6 @@ export default function App() {
 
     return () => listener?.subscription.unsubscribe();
   }, []);
-
-  if (!isReady) {
-    return <LoadingScreen message="Initializing app..." />;
-  }
 
   return (
     <ErrorBoundary>

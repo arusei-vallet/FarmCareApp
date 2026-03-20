@@ -12,10 +12,10 @@ import {
   Modal,
   FlatList,
 } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Ionicons from 'react-native-vector-icons/Ionicons'
-import { LinearGradient } from 'expo-linear-gradient'
 import { useCart, CartItem } from './CartContext'
 import { supabase } from '../../services/supabase'
 import { initiateSTKPush, pollPaymentStatus, validateMPesaPhone } from '../../services/mpesaService'
@@ -394,8 +394,11 @@ const CheckoutScreen = () => {
         return acc
       }, {} as Record<string, CartItem[]>)
 
-      // 4. Create orders for each seller
-      const orderPromises = Object.entries(itemsBySeller).map(async ([sellerId, sellerItems]) => {
+      // 4. Create orders for each seller (sequentially to avoid duplicate order numbers)
+      const orders = []
+      let orderIndex = 0
+
+      for (const [sellerId, sellerItems] of Object.entries(itemsBySeller)) {
         // Calculate subtotal for this seller's items
         const sellerSubtotal = sellerItems.reduce((sum, item) => {
           const price = parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0
@@ -406,12 +409,20 @@ const CheckoutScreen = () => {
         const sellerDeliveryFee = 0
         const sellerTotal = sellerSubtotal
 
+        // Generate unique order number with multiple uniqueness factors
+        const timestamp = Date.now() + orderIndex
+        const randomNum = Math.floor(Math.random() * 100000)
+        const uniqueId = `${timestamp}-${randomNum}-${orderIndex}`
+        const orderNumber = `ORD-${new Date().getFullYear()}-${uniqueId}`
+        orderIndex++
+
         // Create order
         const { data: orderData, error: orderError } = await supabase
           .from('orders')
           .insert({
             customer_id: customerId,
             seller_id: sellerId,
+            order_number: orderNumber,
             status: 'pending',
             subtotal: sellerSubtotal,
             delivery_fee: 0,
@@ -453,11 +464,8 @@ const CheckoutScreen = () => {
           throw itemsError
         }
 
-        return orderData
-      })
-
-      // Wait for all orders to be created
-      const orders = await Promise.all(orderPromises)
+        orders.push(orderData)
+      }
 
       // Get the first order number for display
       if (orders.length > 0 && orders[0].order_number) {
@@ -533,13 +541,14 @@ const CheckoutScreen = () => {
   }
 
   return (
-    <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={{ flex: 1 }}>
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={PRIMARY} />
 
-      {/* Header */}
+      {/* Header - Deep Green Sticky Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={PRIMARY} />
+          <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Checkout</Text>
         <View style={styles.placeholder} />
@@ -890,6 +899,7 @@ const CheckoutScreen = () => {
           </ScrollView>
         </View>
       </Modal>
+      </View>
     </LinearGradient>
   )
 }
@@ -897,7 +907,7 @@ const CheckoutScreen = () => {
 export default CheckoutScreen
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -905,17 +915,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 16,
-    backgroundColor: '#fff',
+    backgroundColor: PRIMARY,
   },
   backBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: PRIMARY },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: '#fff' },
   placeholder: { width: 40 },
   section: {
     marginTop: 20,

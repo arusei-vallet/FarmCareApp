@@ -11,9 +11,9 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { useNavigation } from '@react-navigation/native'
 import Ionicons from 'react-native-vector-icons/Ionicons'
-import { LinearGradient } from 'expo-linear-gradient'
 import { supabase } from '../../services/supabase'
 
 const PRIMARY = '#1B5E20'
@@ -227,20 +227,21 @@ const OrdersScreen = () => {
   )
 
   return (
-    <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <LinearGradient colors={['#f5f9f5', '#e8f5e9', '#ffffff']} style={{ flex: 1 }}>
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={PRIMARY} />
 
-      {/* Header */}
+      {/* Header - Deep Green Sticky Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.navigate('Profile' as never)} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={PRIMARY} />
+          <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Orders</Text>
         <TouchableOpacity
           style={styles.filterBtn}
           onPress={() => setFilterModalVisible(true)}
         >
-          <Ionicons name="filter" size={22} color={PRIMARY} />
+          <Ionicons name="filter" size={22} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -422,14 +423,14 @@ const OrdersScreen = () => {
           </View>
         </View>
       </Modal>
-    </LinearGradient>
+    </View>
   )
 }
 
 export default OrdersScreen
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: '#F4F7F5' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -437,19 +438,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 50,
     paddingBottom: 16,
-    backgroundColor: '#fff',
+    backgroundColor: PRIMARY,
   },
   backBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: { fontSize: 24, fontWeight: '700', color: PRIMARY },
+  headerTitle: { fontSize: 24, fontWeight: '700', color: '#fff' },
   filterBtn: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     padding: 10,
     borderRadius: 12,
   },
