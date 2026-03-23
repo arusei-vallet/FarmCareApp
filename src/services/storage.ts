@@ -3,6 +3,9 @@ import Constants from 'expo-constants'
 
 const PRODUCTS_BUCKET = Constants.expoConfig?.extra?.supabaseProductsBucket || 'products'
 
+// Get Supabase URL for constructing public URLs manually if needed
+const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl || 'https://jluxaezbaiilupmfgmgm.supabase.co'
+
 /**
  * Convert URI to base64
  */
@@ -168,6 +171,39 @@ export async function uploadProductImages(
   }
 
   return { urls, errors }
+}
+
+/**
+ * Get public URL for a product image from Supabase Storage
+ */
+export function getProductImageUrl(imagePath: string): string {
+  if (!imagePath) {
+    console.log('⚠️ getProductImageUrl: Empty path')
+    return ''
+  }
+
+  // If it's already a full URL, return as-is
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    console.log('✅ getProductImageUrl: Already a URL:', imagePath.substring(0, 80))
+    return imagePath
+  }
+
+  console.log('🔗 getProductImageUrl: Converting path:', imagePath)
+
+  // Method 1: Try using Supabase client's getPublicUrl
+  const { data } = supabase.storage
+    .from(PRODUCTS_BUCKET)
+    .getPublicUrl(imagePath)
+
+  if (data?.publicUrl) {
+    console.log('✅ getProductImageUrl result (client):', data.publicUrl.substring(0, 100))
+    return data.publicUrl
+  }
+
+  // Method 2: Manually construct the URL as fallback
+  const manualUrl = `${SUPABASE_URL}/storage/v1/object/public/${PRODUCTS_BUCKET}/${imagePath}`
+  console.log('✅ getProductImageUrl result (manual):', manualUrl.substring(0, 100))
+  return manualUrl
 }
 
 /**

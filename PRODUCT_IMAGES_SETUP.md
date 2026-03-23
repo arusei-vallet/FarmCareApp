@@ -1,132 +1,105 @@
-# Product Images Setup with Supabase Storage
+# Product Images Setup - Categories Screen
 
-This guide explains how product images are uploaded and stored in Supabase.
+## Overview
 
-## Setup Steps
+Products uploaded by farmers will now display correctly in the customer's Categories screen with images.
 
-### 1. Create Storage Bucket in Supabase
+## Changes Made
 
-**Option A: Using SQL Editor (Recommended)**
+### 1. **CategoriesScreen.tsx** - Updated Product Fetching
 
-1. Go to your Supabase Dashboard
-2. Navigate to **SQL Editor**
-3. Run the SQL file: `supabase-storage-setup.sql`
+- Now fetches both `image` and `images` columns from database
+- Handles both singular (`image`) and array (`images`) image storage
+- Falls back to default description if none provided
+- Properly transforms product data for display
 
-**Option B: Using Supabase UI**
+### 2. **ProductContext.tsx** - Updated Product Storage
 
-1. Go to **Storage** in Supabase Dashboard
-2. Click **New Bucket**
-3. Name: `products`
-4. Set **Public** = true
-5. File size limit: `5MB` (5242880 bytes)
-6. Allowed MIME types: `image/jpeg, image/png, image/webp`
-7. Click **Create bucket**
+- Products now store images in **both** `image` and `images` fields
+- Ensures backward compatibility with existing code
+- `addProduct`: Stores image URL in both fields
+- `updateProduct`: Updates both fields when image changes
 
-### 2. Configure Environment Variables
+### 3. **DashboardScreen.tsx** - Fixed Date Handling
 
-Add the bucket name to your `.env` file:
+- Added safe date parsing for discount end dates
+- Prevents "Date value out of bounds" errors
 
-```bash
-EXPO_PUBLIC_SUPABASE_PRODUCTS_BUCKET=products
+## Database Schema
+
+Your `products` table should have these columns for images:
+
+```sql
+-- Image columns (both should exist for compatibility)
+image TEXT           -- Singular image URL (for backward compatibility)
+images JSONB         -- Array of image URLs (for new features)
 ```
 
-### 3. How It Works
+### If `image` column is missing, run this migration:
 
-#### When a Farmer Adds a Product:
+```sql
+-- Add image column for backward compatibility
+ALTER TABLE public.products
+ADD COLUMN IF NOT EXISTS image TEXT;
 
-1. **Select Image**: Farmer picks image from gallery or camera
-2. **Image Stored Temporarily**: Image URI is stored in local state
-3. **Save Product**: When farmer taps "Add Product":
-   - Image is uploaded to Supabase Storage bucket
-   - Public URL is generated
-   - Product data + image URL saved to `products` table
-4. **Display**: Image URL is used to display image in UI
-
-#### File Structure in Bucket:
-```
-products/
-├── product-1234567890-abc123.jpg
-├── product-1234567891-def456.png
-└── product-1234567892-ghi789.webp
+-- Add comment
+COMMENT ON COLUMN public.products.image IS 'Primary product image URL (for backward compatibility)';
 ```
 
-### 4. Code Flow
+## How It Works
 
-```
-ProductsScreen.tsx
-    ↓
-pickImage() / takePhoto()
-    ↓
-Store local URI in state
-    ↓
-handleSaveProduct()
-    ↓
-ProductContext.addProduct()
-    ↓
-uploadProductImage() [storage.ts]
-    ↓
-Supabase Storage Upload
-    ↓
-Get Public URL
-    ↓
-Save to products.images[] array
-    ↓
-Refresh Products List
-    ↓
-Display in UI
-```
+### Farmer Adds Product (Dashboard/Products Screen)
 
-### 5. Key Files
+1. Farmer selects/takes photo
+2. Image is uploaded to Supabase Storage
+3. Product is saved with:
+   - `image`: "https://...storage.url/..."
+   - `images`: ["https://...storage.url/..."]
 
-| File | Purpose |
-|------|---------|
-| `src/services/storage.ts` | Image upload/delete functions |
-| `src/context/ProductContext.tsx` | Integrates storage with product CRUD |
-| `src/screens/farmer/ProductsScreen.tsx` | UI for image selection & upload feedback |
-| `supabase-storage-setup.sql` | Database setup for storage bucket |
+### Customer Views Categories Screen
 
-### 6. Features
+1. Fetches products with both `image` and `images` columns
+2. Display logic: `product.image || product.images[0]`
+3. Shows product with proper image
 
-- ✅ Upload images from camera or gallery
-- ✅ Shows upload progress indicator
-- ✅ Stores images in Supabase Storage
-- ✅ Generates public URLs for display
-- ✅ Works for both new and edited products
-- ✅ Graceful fallback if upload fails
-- ✅ Images displayed in farmer's ProductsScreen
-- ✅ Images displayed in customer's HomeScreen
+## Testing Checklist
 
-### 7. Troubleshooting
+### For Farmers:
 
-**Error: "Bucket not found"**
-- Ensure bucket `products` exists in Supabase Storage
-- Check `EXPO_PUBLIC_SUPABASE_PRODUCTS_BUCKET` in `.env`
+- [ ] Add a new product with image from gallery
+- [ ] Add a new product with photo from camera
+- [ ] Edit existing product and change image
+- [ ] Verify product appears in database with both `image` and `images` fields
 
-**Error: "Permission denied"**
-- Run the storage policies SQL in Supabase
-- Ensure user is authenticated
+### For Customers:
 
-**Images not displaying**
-- Check if bucket is public
-- Verify image URLs in database are accessible
-- Check network connectivity
+- [ ] Open Categories screen
+- [ ] Select different categories
+- [ ] Verify products display with images
+- [ ] Tap product to view details
+- [ ] Add product to cart
 
-### 8. Security
+## Troubleshooting
 
-- **Authentication Required**: Only logged-in farmers can upload
-- **RLS Policies**: Users can only manage their own images
-- **File Size Limit**: 5MB per image
-- **MIME Type Validation**: Only images allowed
+### Products show without images:
 
-### 9. Testing
+1. Check console logs for image upload errors
+2. Verify `image` column exists in products table
+3. Check storage bucket permissions
 
-1. Start the app
-2. Login as a farmer
-3. Go to Products screen
-4. Tap **+** button
-5. Tap "Pick from gallery" or "Take a photo"
-6. Fill in product details
-7. Tap "Add Product"
-8. Check console for upload logs
-9. Verify image appears in products list
-10. Check Supabase Storage bucket for uploaded file
+### Image upload fails:
+
+1. Run `fix-storage-policies.sql` in Supabase
+2. Check network connectivity
+3. Verify storage bucket exists
+
+### Database error "column does not exist":
+
+Run the migration SQL above to add missing columns
+
+## File Locations
+
+- Customer Categories: `src/screens/customer/CategoriesScreen.tsx`
+- Product Context: `src/context/ProductContext.tsx`
+- Farmer Products: `src/screens/farmer/ProductsScreen.tsx`
+- Farmer Dashboard: `src/screens/farmer/DashboardScreen.tsx`

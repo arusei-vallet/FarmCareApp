@@ -41,6 +41,9 @@ interface ProductWithUI extends ContextProduct {
   mostPurchased?: boolean
   latest?: boolean
   isFeatured?: boolean
+  discount_percentage?: number
+  discounted_price?: number
+  discount_active?: boolean
 }
 
 const HomeScreen: React.FC = () => {
@@ -186,7 +189,7 @@ const HomeScreen: React.FC = () => {
     try {
       setFeaturedLoading(true)
 
-      // Fetch products that are marked as featured or have good ratings
+      // Fetch products that are featured OR have active discounts
       const { data, error } = await supabase
         .from('products')
         .select(`
@@ -202,9 +205,14 @@ const HomeScreen: React.FC = () => {
           category,
           quantity_available,
           seller_id,
+          discount_percentage,
+          discounted_price,
+          discount_active,
           users:seller_id (id, full_name)
         `)
         .eq('is_available', true)
+        .or('is_featured.eq.true,discount_active.eq.true')
+        .order('discount_active', { ascending: false })
         .order('is_featured', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(10)
@@ -223,7 +231,10 @@ const HomeScreen: React.FC = () => {
         rating: item.rating,
         review_count: item.review_count,
         unit: item.unit,
-        isFeatured: item.is_featured,
+        isFeatured: item.is_featured || item.discount_active,
+        discount_percentage: item.discount_percentage,
+        discounted_price: item.discounted_price,
+        discount_active: item.discount_active,
       }))
 
       setFeaturedProducts(formattedFeatured)
@@ -606,15 +617,32 @@ const HomeScreen: React.FC = () => {
                         color={favoriteProducts.has(item.id) ? '#FF5252' : '#fff'}
                       />
                     </TouchableOpacity>
-                    {item.isFeatured && (
+                    {/* Discount Badge */}
+                    {item.discount_active && item.discount_percentage ? (
+                      <View style={styles.discountBadge}>
+                        <Text style={styles.discountBadgeText}>{item.discount_percentage}% OFF</Text>
+                      </View>
+                    ) : item.isFeatured ? (
                       <View style={styles.featuredBadge}>
                         <Text style={styles.featuredBadgeText}>FEATURED</Text>
                       </View>
-                    )}
+                    ) : null}
                   </View>
                   <View style={styles.featuredOverlay}>
                     <Text style={styles.featuredTitle} numberOfLines={1}>{item.name}</Text>
-                    <Text style={styles.featuredSubtitle}>{String(item.price)}</Text>
+                    {/* Price with discount */}
+                    {item.discount_active && item.discounted_price ? (
+                      <View style={styles.featuredPriceContainer}>
+                        <Text style={styles.featuredOriginalPrice}>
+                          {String(item.price)}
+                        </Text>
+                        <Text style={styles.featuredDiscountedPrice}>
+                          KES {item.discounted_price.toFixed(2)}/{item.unit}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.featuredSubtitle}>{String(item.price)}</Text>
+                    )}
                     {item.rating ? (
                       <View style={styles.featuredRating}>
                         <Icon name="star" size={12} color="#FFC107" />
@@ -859,6 +887,11 @@ const styles = StyleSheet.create({
   favoriteIcon: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 20, padding: 6 },
   featuredBadge: { position: 'absolute', top: 10, left: 10, backgroundColor: ACCENT, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   featuredBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  discountBadge: { position: 'absolute', top: 10, left: 10, backgroundColor: '#E53935', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  discountBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  featuredPriceContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: 8 },
+  featuredOriginalPrice: { color: '#ccc', fontSize: 12, textDecorationLine: 'line-through' },
+  featuredDiscountedPrice: { color: '#FFC107', fontSize: 14, fontWeight: 'bold' },
   featuredOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 15, backgroundColor: 'rgba(0,0,0,0.5)' },
   featuredTitle: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   featuredSubtitle: { color: '#fff', fontSize: 14, marginTop: 2 },

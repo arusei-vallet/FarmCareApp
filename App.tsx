@@ -1,7 +1,9 @@
 // App.tsx
 import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, View, StyleSheet, Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import * as Font from 'expo-font';
 import { supabase } from './src/services/supabase';
 
 // Error Boundary
@@ -45,10 +47,20 @@ const PRIMARY = '#1B5E20';
 
 export default function App() {
   const [initialRoute, setInitialRoute] = useState('Onboarding');
+  const [fontsLoaded, setFontsLoaded] = useState(false);
+  const [appReady, setAppReady] = useState(false);
 
   useEffect(() => {
     const prepareApp = async () => {
       try {
+        // Load icon fonts
+        await Font.loadAsync({
+          'Ionicons': require('react-native-vector-icons/Fonts/Ionicons.ttf'),
+          'MaterialCommunityIcons': require('react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf'),
+        });
+        setFontsLoaded(true);
+
+        // Check auth session
         const { data: { session } } = await supabase.auth.getSession();
 
         if (session?.user) {
@@ -68,8 +80,11 @@ export default function App() {
             setInitialRoute('Login');
           }
         }
+        
+        setAppReady(true);
       } catch (e) {
         console.warn('App init error:', e);
+        setAppReady(true);
       }
     };
 
@@ -84,6 +99,16 @@ export default function App() {
 
     return () => listener?.subscription.unsubscribe();
   }, []);
+
+  // Show loading screen while fonts are loading
+  if (!appReady || !fontsLoaded) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={PRIMARY} />
+        <Text style={styles.loadingText}>Loading FarmCare...</Text>
+      </View>
+    );
+  }
 
   return (
     <ErrorBoundary>
@@ -202,3 +227,18 @@ export default function App() {
   </ErrorBoundary>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f9f5',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#1B5E20',
+    fontWeight: '600',
+  },
+});

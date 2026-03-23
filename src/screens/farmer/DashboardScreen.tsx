@@ -33,7 +33,14 @@ const Dashboard: React.FC = () => {
   const [restockModalVisible, setRestockModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [restockQuantity, setRestockQuantity] = useState("");
-  
+
+  // Discount state
+  const [discountModalVisible, setDiscountModalVisible] = useState(false);
+  const [selectedProductForDiscount, setSelectedProductForDiscount] = useState<any>(null);
+  const [discountPercentage, setDiscountPercentage] = useState("");
+  const [discountEndDate, setDiscountEndDate] = useState("");
+  const [discountActive, setDiscountActive] = useState(false);
+
   // KPI State
   const [kpiData, setKpiData] = useState({
     totalRevenue: 0,
@@ -102,11 +109,20 @@ const Dashboard: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Fetch products
-      const { data: productsData } = await supabase
+      // Fetch products with discount info
+      const { data: productsData, error: productsError } = await supabase
         .from('products')
-        .select('id, name, price, quantity_available, unit, is_available, created_at')
+        .select('id, name, price, quantity_available, unit, is_available, created_at, discount_percentage, discounted_price, discount_active, discount_end_date')
         .eq('seller_id', user.id);
+
+      if (productsError) {
+        console.log('🔴 Error fetching products:', productsError);
+      } else {
+        console.log('🟢 Fetched products:', productsData?.length || 0);
+        if (productsData && productsData.length > 0) {
+          console.log('🟢 First product:', productsData[0]);
+        }
+      }
 
       // Fetch orders
       const { data: ordersData } = await supabase
@@ -353,6 +369,143 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const openDiscountModal = (product: any) => {
+    console.log('🟢 Opening discount modal for product:', product);
+    setSelectedProductForDiscount(product);
+    setDiscountPercentage(product.discount_percentage?.toString() || "");
+    setDiscountActive(product.discount_active || false);
+    
+    // Safely parse discount end date
+    let endDate = "";
+    if (product.discount_end_date) {
+      try {
+        const date = new Date(product.discount_end_date);
+        if (!isNaN(date.getTime())) {
+          endDate = date.toISOString().split('T')[0];
+        }
+      } catch (error) {
+        console.log('⚠️ Invalid date format:', product.discount_end_date);
+      }
+    }
+    setDiscountEndDate(endDate);
+    
+    setDiscountModalVisible(true);
+    console.log('🟢 Discount modal state:', {
+      discountModalVisible: true,
+      selectedProduct: product?.name,
+      discountPercentage: product.discount_percentage?.toString() || "0",
+      discountActive: product.discount_active || false,
+      discountEndDate: endDate
+    });
+  };
+
+  const calculateDiscountedPrice = (price: number, percentage: number) => {
+    return price - (price * percentage / 100);
+  };
+
+  const handleApplyDiscount = async () => {
+    if (!selectedProductForDiscount) {
+      Alert.alert("Error", "No product selected.");
+      return;
+    }
+
+    const percentage = parseFloat(discountPercentage);
+    if (discountActive && (isNaN(percentage) || percentage < 0 || percentage > 100)) {
+      Alert.alert("Error", "Please enter a valid discount percentage (0-100).");
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert("Error", "User not authenticated.");
+        return;
+      }
+
+      const originalPrice = selectedProductForDiscount.price;
+      const discountedPrice = discountActive ? calculateDiscountedPrice(originalPrice, percentage) : null;
+
+      // Safely handle end date
+      let endDate = null;
+      if (discountActive && discountEndDate) {
+        try {
+          const date = new Date(discountEndDate);
+          if (!isNaN(date.getTime())) {
+            endDate = date.toISOString();
+          }
+        } catch (error) {
+          console.log('⚠️ Invalid end date, setting to null');
+        }
+      }
+
+      const updateData: any = {
+        discount_percentage: discountActive ? percentage : 0,
+        discounted_price: discountedPrice,
+        discount_active: discountActive,
+        discount_end_date: endDate,
+      };
+
+      const { error } = await supabase
+        .from('products')
+        .update(updateData)
+        .eq('id', selectedProductForDiscount.id);
+
+      if (error) throw error;
+
+      Alert.alert(
+        "Success! 🎉",
+        discountActive
+          ? `${selectedProductForDiscount.name} now has a ${percentage}% discount! New price: KES ${discountedPrice?.toFixed(2)}`
+          : `Discount removed from ${selectedProductForDiscount.name}`,
+        [{
+          text: "OK",
+          onPress: () => {
+            setDiscountModalVisible(false);
+            fetchDashboardData();
+          }
+        }]
+      );
+    } catch (error: any) {
+      console.log("Discount error:", error);
+      Alert.alert("Error", error.message || "Failed to apply discount. Please try again.");
+    }
+  };
+
+  const removeDiscount = async (product: any) => {
+    Alert.alert(
+      "Remove Discount",
+      `Are you sure you want to remove the discount from ${product.name}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('products')
+                .update({
+                  discount_percentage: 0,
+                  discounted_price: null,
+                  discount_active: false,
+                  discount_end_date: null,
+                })
+                .eq('id', product.id);
+
+              if (error) throw error;
+
+              Alert.alert("Success!", "Discount removed successfully.", [
+                { text: "OK", onPress: () => fetchDashboardData() }
+              ]);
+            } catch (error: any) {
+              Alert.alert("Error", error.message || "Failed to remove discount.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Delivered":
@@ -434,7 +587,7 @@ const Dashboard: React.FC = () => {
               onPress={() => setNotificationsModalVisible(true)}
               style={styles.notificationBtn}
             >
-              <Ionicons name="notifications-outline" size={24} color="#fff" />
+              <Ionicons name="notifications-outline" size={24} color="#ffffff" />
               {notificationCount > 0 && (
                 <View style={styles.notificationBadge}>
                   <Text style={styles.notificationCount}>{notificationCount > 9 ? '9+' : notificationCount}</Text>
@@ -443,7 +596,7 @@ const Dashboard: React.FC = () => {
             </TouchableOpacity>
 
             <TouchableOpacity onPress={handleLogout} style={styles.logout}>
-              <Ionicons name="log-out-outline" size={24} color="#fff" />
+              <Ionicons name="log-out-outline" size={24} color="#ffffff" />
             </TouchableOpacity>
           </View>
         </View>
@@ -504,6 +657,105 @@ const Dashboard: React.FC = () => {
                 </AnimatedTouchable>
               ))}
             </View>
+          </View>
+
+          {/* MY PRODUCTS - Discount Management */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>My Products</Text>
+              <TouchableOpacity onPress={() => navigation.navigate("Products")}>
+                <Text style={styles.viewAll}>Manage</Text>
+              </TouchableOpacity>
+            </View>
+            {products.length === 0 ? (
+              <View style={styles.emptyProductsContainer}>
+                <MCIcon name="fruit-cherries" size={48} color="#bdbdbd" />
+                <Text style={styles.emptyProductsText}>No products yet</Text>
+                <Text style={styles.emptyProductsSubtext}>Add products to start selling</Text>
+              </View>
+            ) : (
+              <View style={styles.productsList}>
+                {products.slice(0, 5).map((product, index) => {
+                  const hasDiscount = product.discount_active && product.discount_percentage > 0;
+                  console.log(`🟢 Rendering product ${index}:`, {
+                    name: product.name,
+                    price: product.price,
+                    hasDiscount,
+                    discount_active: product.discount_active,
+                    discount_percentage: product.discount_percentage
+                  });
+                  return (
+                    <TouchableOpacity
+                      key={product.id}
+                      style={styles.productCard}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        console.log('🟢 Product card pressed:', product.name);
+                        openDiscountModal(product);
+                      }}
+                    >
+                      <View style={styles.productCardHeader}>
+                        <View style={styles.productInfo}>
+                          <Text style={styles.productName} numberOfLines={1}>
+                            {product.name}
+                          </Text>
+                          <Text style={styles.productStock}>
+                            {product.quantity_available} {product.unit} available
+                          </Text>
+                        </View>
+                        <View style={styles.productPriceSection}>
+                          {hasDiscount ? (
+                            <>
+                              <Text style={styles.originalPrice}>
+                                KES {product.price.toFixed(2)}
+                              </Text>
+                              <View style={styles.discountedPriceBadge}>
+                                <Text style={styles.discountedPrice}>
+                                  KES {product.discounted_price?.toFixed(2) || '0.00'}
+                                </Text>
+                              </View>
+                            </>
+                          ) : (
+                            <Text style={styles.productPrice}>
+                              KES {product.price.toFixed(2)}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                      <View style={styles.productCardFooter}>
+                        {hasDiscount ? (
+                          <View style={styles.discountBadgeActive}>
+                            <MCIcon name="tag-percent" size={14} color="#fff" />
+                            <Text style={styles.discountBadgeText}>
+                              {product.discount_percentage}% OFF
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={styles.addDiscountHint}>
+                            <Ionicons name="pricetag-outline" size={14} color="#1b5e20" />
+                            <Text style={styles.addDiscountText}>Tap to add discount</Text>
+                          </View>
+                        )}
+                        <View style={styles.productAction}>
+                          <Ionicons name="chevron-forward" size={18} color="#9e9e9e" />
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+                {products.length > 5 && (
+                  <TouchableOpacity
+                    style={styles.viewAllProductsBtn}
+                    onPress={() => navigation.navigate("Products")}
+                  >
+                    <Text style={styles.viewAllProductsText}>
+                      View all {products.length} products
+                    </Text>
+                    <Ionicons name="arrow-forward" size={18} color="#1b5e20" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </View>
 
           {/* RECENT ORDERS */}
@@ -981,7 +1233,147 @@ const Dashboard: React.FC = () => {
           </View>
         </View>
       </Modal>
-    </LinearGradient>
+
+      {/* Discount Modal */}
+      <Modal
+        visible={discountModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDiscountModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalOverlay}>
+            <LinearGradient
+              colors={["#ffffff", "#e8f5e9"]}
+              style={styles.modalContent}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              {/* Modal Header */}
+              <View style={styles.modalHeader}>
+                <View>
+                  <Text style={styles.modalOrderTitle}>
+                    {selectedProductForDiscount?.discount_active ? 'Edit Discount' : 'Add Discount'}
+                  </Text>
+                  <Text style={styles.modalOrderId}>
+                    {selectedProductForDiscount?.name || ''}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.modalCloseBtn}
+                  onPress={() => setDiscountModalVisible(false)}
+                >
+                  <Ionicons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+                {/* Product Info */}
+                <View style={styles.discountProductInfo}>
+                  <View style={styles.discountProductRow}>
+                    <Text style={styles.discountInfoLabel}>Current Price:</Text>
+                    <Text style={styles.discountInfoValue}>KES {selectedProductForDiscount?.price?.toFixed(2) || '0.00'}</Text>
+                  </View>
+                  {selectedProductForDiscount?.discount_active && (
+                    <View style={styles.discountProductRow}>
+                      <Text style={styles.discountInfoLabel}>Current Discount:</Text>
+                      <Text style={styles.discountInfoValue}>{selectedProductForDiscount.discount_percentage}%</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Discount Percentage Input */}
+                <View style={styles.discountInputSection}>
+                  <Text style={styles.discountInputLabel}>Discount Percentage (%)</Text>
+                  <View style={styles.discountInputWrapper}>
+                    <TextInput
+                      style={styles.discountPercentageInput}
+                      value={discountPercentage}
+                      onChangeText={setDiscountPercentage}
+                      placeholder="Enter discount %"
+                      keyboardType="numeric"
+                      placeholderTextColor="#9e9e9e"
+                    />
+                    <Text style={styles.discountPercentSymbol}>%</Text>
+                  </View>
+                  
+                  {/* Discount Preview */}
+                  {discountPercentage && !isNaN(parseFloat(discountPercentage)) && (
+                    <View style={styles.discountPreview}>
+                      <Text style={styles.discountPreviewText}>
+                        New Price: KES {calculateDiscountedPrice(
+                          selectedProductForDiscount?.price || 0,
+                          parseFloat(discountPercentage)
+                        ).toFixed(2)}
+                      </Text>
+                      <Text style={styles.discountPreviewSavings}>
+                        Save: KES {(
+                          (selectedProductForDiscount?.price || 0) -
+                          calculateDiscountedPrice(selectedProductForDiscount?.price || 0, parseFloat(discountPercentage))
+                        ).toFixed(2)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Discount Active Toggle */}
+                <View style={styles.discountToggleSection}>
+                  <View style={styles.discountToggleRow}>
+                    <Text style={styles.discountToggleLabel}>Activate Discount</Text>
+                    <TouchableOpacity
+                      style={[styles.discountToggle, discountActive && styles.discountToggleActive]}
+                      onPress={() => setDiscountActive(!discountActive)}
+                    >
+                      <View style={[styles.discountToggleCircle, discountActive && styles.discountToggleCircleActive]} />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.discountToggleHint}>
+                    {discountActive ? 'Discount will be visible to customers' : 'Discount will be hidden from customers'}
+                  </Text>
+                </View>
+
+                {/* End Date (optional) */}
+                {discountActive && (
+                  <View style={styles.discountDateSection}>
+                    <Text style={styles.discountInputLabel}>End Date (Optional)</Text>
+                    <TextInput
+                      style={styles.discountDateInput}
+                      value={discountEndDate}
+                      onChangeText={setDiscountEndDate}
+                      placeholder="YYYY-MM-DD"
+                      placeholderTextColor="#9e9e9e"
+                    />
+                    <Text style={styles.discountDateHint}>Leave empty for no expiry</Text>
+                  </View>
+                )}
+              </ScrollView>
+
+              {/* Modal Actions */}
+              <View style={styles.modalActions}>
+                {selectedProductForDiscount?.discount_active && (
+                  <TouchableOpacity
+                    style={[styles.modalCancel, { backgroundColor: '#ef5350' }]}
+                    onPress={() => removeDiscount(selectedProductForDiscount)}
+                  >
+                    <Ionicons name="trash-outline" size={18} color="#fff" />
+                    <Text style={styles.modalBtnText}>Remove</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={styles.modalSave}
+                  onPress={handleApplyDiscount}
+                >
+                  <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                  <Text style={styles.modalBtnTextSave}>
+                    {selectedProductForDiscount?.discount_active ? 'Update' : 'Apply'} Discount
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 };
 
@@ -997,12 +1389,12 @@ const styles = StyleSheet.create({
     paddingTop: 55,
     paddingHorizontal: 20,
     paddingBottom: 10,
-    backgroundColor: "rgba(232, 245, 233, 0.95)",
+    backgroundColor: "rgba(27, 94, 32, 0.98)",
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
     elevation: 8,
     shadowColor: "#000",
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 12,
   },
   scrollContent: {
@@ -1030,17 +1422,17 @@ const styles = StyleSheet.create({
 
   notificationBtn: {
     position: "relative",
-    backgroundColor: "#ffffff",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     padding: 12,
     borderRadius: 14,
-    elevation: 4,
+    elevation: 2,
   },
 
   notificationBadge: {
     position: "absolute",
     top: -4,
     right: -4,
-    backgroundColor: "#c62828",
+    backgroundColor: "#d32f2f",
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -1057,20 +1449,20 @@ const styles = StyleSheet.create({
 
   welcome: {
     fontSize: 15,
-    color: "#4e944f",
+    color: "#e8f5e9",
   },
 
   name: {
     fontSize: 24,
     fontWeight: "700",
-    color: "#1b4332",
+    color: "#ffffff",
   },
 
   logout: {
-    backgroundColor: "#ffffff",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     padding: 12,
     borderRadius: 14,
-    elevation: 4,
+    elevation: 2,
   },
 
   kpiContainer: {
@@ -1647,5 +2039,262 @@ const styles = StyleSheet.create({
     shadowColor: "#2e7d32",
     shadowOpacity: 0.3,
     shadowRadius: 6,
+  },
+
+  // Products Section Styles
+  emptyProductsContainer: {
+    alignItems: "center",
+    paddingVertical: 30,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 20,
+  },
+  emptyProductsText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#424242",
+    marginTop: 12,
+  },
+  emptyProductsSubtext: {
+    fontSize: 14,
+    color: "#9e9e9e",
+    marginTop: 6,
+    textAlign: "center",
+  },
+  productsList: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 16,
+  },
+  productCard: {
+    backgroundColor: "#f5f9f5",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#c8e6c9",
+  },
+  productCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 10,
+  },
+  productInfo: {
+    flex: 1,
+    marginRight: 10,
+  },
+  productName: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#1b4332",
+    marginBottom: 4,
+  },
+  productStock: {
+    fontSize: 13,
+    color: "#6c757d",
+  },
+  productPriceSection: {
+    alignItems: "flex-end",
+  },
+  productPrice: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#2e7d32",
+  },
+  originalPrice: {
+    fontSize: 13,
+    color: "#9e9e9e",
+    textDecorationLine: "line-through",
+    marginBottom: 2,
+  },
+  discountedPriceBadge: {
+    backgroundColor: "#2e7d32",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  discountedPrice: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  productCardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: "#e0e0e0",
+    paddingTop: 10,
+  },
+  discountBadgeActive: {
+    flexDirection: "row",
+    backgroundColor: "#ef5350",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignItems: "center",
+    gap: 4,
+  },
+  discountBadgeText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  addDiscountHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  addDiscountText: {
+    fontSize: 12,
+    color: "#1b5e20",
+    fontWeight: "500",
+  },
+  productAction: {
+    alignItems: "center",
+  },
+  viewAllProductsBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    gap: 8,
+    marginTop: 8,
+  },
+  viewAllProductsText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1b5e20",
+  },
+
+  // Discount Modal Styles
+  discountProductInfo: {
+    backgroundColor: "#f5f9f5",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#c8e6c9",
+  },
+  discountProductRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 6,
+  },
+  discountInfoLabel: {
+    fontSize: 14,
+    color: "#6c757d",
+    fontWeight: "500",
+  },
+  discountInfoValue: {
+    fontSize: 14,
+    color: "#1b4332",
+    fontWeight: "700",
+  },
+  discountInputSection: {
+    marginBottom: 20,
+  },
+  discountInputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#424242",
+    marginBottom: 8,
+  },
+  discountInputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    paddingHorizontal: 16,
+  },
+  discountPercentageInput: {
+    flex: 1,
+    fontSize: 16,
+    color: "#333",
+    paddingVertical: 14,
+  },
+  discountPercentSymbol: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#2e7d32",
+  },
+  discountPreview: {
+    backgroundColor: "#e8f5e9",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 10,
+    gap: 4,
+  },
+  discountPreviewText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1b4332",
+  },
+  discountPreviewSavings: {
+    fontSize: 13,
+    color: "#2e7d32",
+    fontWeight: "500",
+  },
+  discountToggleSection: {
+    marginBottom: 20,
+    backgroundColor: "#f5f9f5",
+    padding: 16,
+    borderRadius: 12,
+  },
+  discountToggleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  discountToggleLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#424242",
+  },
+  discountToggleHint: {
+    fontSize: 12,
+    color: "#6c757d",
+  },
+  discountToggle: {
+    width: 50,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#bdbdbd",
+    padding: 3,
+  },
+  discountToggleActive: {
+    backgroundColor: "#2e7d32",
+  },
+  discountToggleCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#fff",
+  },
+  discountToggleCircleActive: {
+    backgroundColor: "#fff",
+  },
+  discountDateSection: {
+    marginBottom: 16,
+  },
+  discountDateInput: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: "#333",
+  },
+  discountDateHint: {
+    fontSize: 12,
+    color: "#9e9e9e",
+    marginTop: 6,
   },
 });

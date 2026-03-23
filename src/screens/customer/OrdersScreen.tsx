@@ -424,6 +424,7 @@ const OrdersScreen = () => {
         </View>
       </Modal>
     </View>
+    </LinearGradient>
   )
 }
 

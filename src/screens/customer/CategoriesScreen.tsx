@@ -21,6 +21,7 @@ import MCIcons from 'react-native-vector-icons/MaterialCommunityIcons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useCart, Product } from './CartContext'
 import { supabase } from '../../services/supabase'
+import { getProductImageUrl } from '../../services/storage'
 
 const { width } = Dimensions.get('window')
 
@@ -70,6 +71,8 @@ const CATEGORIES: CategoryInfo[] = [
   { id: 'Tubers', name: 'Tubers', icon: 'potato', color: '#8D6E63', bgColor: '#EFEBE9', gradient: ['#8D6E63', '#A1887F'] },
   { id: 'Dairy', name: 'Dairy', icon: 'cow', color: '#0277BD', bgColor: '#E1F5FE', gradient: ['#0277BD', '#29B6F6'] },
   { id: 'Poultry', name: 'Poultry', icon: 'chicken', color: '#F57C00', bgColor: '#FFF3E0', gradient: ['#F57C00', '#FF9800'] },
+  { id: 'Seafood', name: 'Seafood', icon: 'fish', color: '#0097A7', bgColor: '#E0F7FA', gradient: ['#0097A7', '#26C6DA'] },
+  { id: 'Organic', name: 'Organic', icon: 'sprout', color: '#43A047', bgColor: '#E8F5E9', gradient: ['#43A047', '#66BB6A'] },
   { id: 'Spices', name: 'Spices', icon: 'pepper', color: '#C62828', bgColor: '#FFEBEE', gradient: ['#C62828', '#E53935'] },
   { id: 'Herbs', name: 'Herbs', icon: 'sprout', color: '#43A047', bgColor: '#E8F5E9', gradient: ['#43A047', '#66BB6A'] },
   { id: 'Seeds', name: 'Seeds', icon: 'seed-outline', color: '#5D4037', bgColor: '#EFEBE9', gradient: ['#5D4037', '#795548'] },
@@ -110,8 +113,6 @@ const CategoriesScreen = () => {
   const fetchProducts = async () => {
     setLoading(true)
     try {
-      console.log('🔄 Fetching products for category:', selectedCategory)
-
       let query = supabase
         .from('products')
         .select(`
@@ -120,6 +121,7 @@ const CategoriesScreen = () => {
           description,
           price,
           unit,
+          image,
           images,
           rating,
           review_count,
@@ -137,31 +139,38 @@ const CategoriesScreen = () => {
       const { data, error } = await query.order('created_at', { ascending: false }).limit(50)
 
       if (error) {
-        console.log('❌ Error fetching products:', error.message)
         Alert.alert('Error', 'Failed to load products: ' + error.message)
         return
       }
 
-      console.log('✅ Fetched', data?.length || 0, 'products for', selectedCategory)
+      const transformedProducts: CategoryProduct[] = (data || []).map(product => {
+        // Handle both image (singular) and images (array) fields
+        const rawImage = product.image || product.images?.[0] || ''
+        // Convert storage path to public URL
+        const productImage = rawImage ? getProductImageUrl(rawImage) : ''
 
-      const transformedProducts: CategoryProduct[] = (data || []).map(product => ({
-        id: product.id,
-        name: product.name,
-        description: product.description,
-        price: `KES ${product.price}`,
-        unit: product.unit || 'kg',
-        image: product.images?.[0] || '',
-        images: product.images || [],
-        rating: product.rating || 0,
-        reviews: product.review_count || 0,
-        seller: (product.users as any)?.full_name || 'Local Farmer',
-        category: product.category,
-        quantity_available: product.quantity_available,
-      }))
+        console.log('🖼️ Product:', product.name, '| Raw:', rawImage, '| URL:', productImage?.substring(0, 80))
+
+        return {
+          id: product.id,
+          name: product.name,
+          description: product.description || 'Fresh produce from local farmers',
+          price: `KES ${product.price}`,
+          unit: product.unit || 'kg',
+          image: productImage || 'https://via.placeholder.com/400x300?text=' + encodeURIComponent(product.name),
+          images: product.images && product.images.length > 0
+            ? product.images.map((img: string) => getProductImageUrl(img))
+            : [productImage || 'https://via.placeholder.com/400x300?text=' + encodeURIComponent(product.name)],
+          rating: product.rating || 0,
+          reviews: product.review_count || 0,
+          seller: (product.users as any)?.full_name || 'Local Farmer',
+          category: product.category,
+          quantity_available: product.quantity_available,
+        }
+      })
 
       setProducts(transformedProducts)
     } catch (error: any) {
-      console.log('❌ Error in fetchProducts:', error.message)
       Alert.alert('Error', 'Failed to load products: ' + error.message)
     } finally {
       setLoading(false)
@@ -297,7 +306,17 @@ const CategoriesScreen = () => {
             style={styles.listImageContainer}
             onPress={() => handleQuickView(item)}
           >
-            <Image source={{ uri: item.image }} style={styles.listImage} resizeMode="cover" />
+            <Image
+              source={{ uri: item.image }}
+              style={styles.listImage}
+              resizeMode="cover"
+              onError={(e) => {
+                console.error('❌ List Image load error for', item.name, ':', e.nativeEvent.error, '| URL:', item.image)
+              }}
+              onLoad={() => {
+                console.log('✅ List Image loaded for', item.name)
+              }}
+            />
             {item.quantity_available !== null && item.quantity_available !== undefined && item.quantity_available < 10 && (
               <View style={styles.lowStockBadge}>
                 <Text style={styles.lowStockText}>Low Stock</Text>
@@ -306,7 +325,7 @@ const CategoriesScreen = () => {
           </TouchableOpacity>
           <View style={styles.listContent}>
             <View style={styles.listHeader}>
-              <Text style={styles.listProductName} numberOfLines={1}>{item.name}</Text>
+              <Text style={styles.listProductName} numberOfLines={2}>{item.name}</Text>
               <TouchableOpacity onPress={() => toggleFavorite(item.id)}>
                 <Ionicons
                   name={isFavorite ? 'heart' : 'heart-outline'}
@@ -320,6 +339,10 @@ const CategoriesScreen = () => {
               <View style={styles.listStars}>{renderStars(item.rating, 12)}</View>
               <Text style={styles.listReviews}>({item.reviews})</Text>
             </View>
+            {/* Product Description */}
+            <Text style={styles.listDescription} numberOfLines={2}>
+              {item.description || 'Fresh produce from local farmers'}
+            </Text>
             <Text style={styles.listPrice}>{item.price}<Text style={styles.listUnit}>/{item.unit}</Text></Text>
             <View style={styles.listActions}>
               <TouchableOpacity
@@ -346,11 +369,22 @@ const CategoriesScreen = () => {
       )
     }
 
+    // Grid view
     return (
       <Animated.View style={[styles.gridCard, { opacity: fadeAnim }]}>
         <View style={styles.gridImageContainer}>
           <TouchableOpacity onPress={() => handleQuickView(item)} activeOpacity={0.7}>
-            <Image source={{ uri: item.image }} style={styles.gridImage} resizeMode="cover" />
+            <Image
+              source={{ uri: item.image }}
+              style={styles.gridImage}
+              resizeMode="cover"
+              onError={(e) => {
+                console.error('❌ Grid Image load error for', item.name, ':', e.nativeEvent.error, '| URL:', item.image?.substring(0, 100))
+              }}
+              onLoad={() => {
+                console.log('✅ Grid Image loaded for', item.name)
+              }}
+            />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.favoriteBtn}
@@ -369,12 +403,16 @@ const CategoriesScreen = () => {
           )}
         </View>
         <View style={styles.gridContent}>
-          <Text style={styles.gridProductName} numberOfLines={1}>{item.name}</Text>
+          <Text style={styles.gridProductName} numberOfLines={2}>{item.name}</Text>
           <Text style={styles.gridSeller} numberOfLines={1}>🌾 {item.seller}</Text>
           <View style={styles.gridRatingRow}>
             {renderStars(item.rating, 10)}
             <Text style={styles.gridReviews}>({item.reviews})</Text>
           </View>
+          {/* Product Description */}
+          <Text style={styles.gridDescription} numberOfLines={2}>
+            {item.description || 'Fresh produce'}
+          </Text>
           <Text style={styles.gridPrice}>{item.price}<Text style={styles.gridUnit}>/{item.unit}</Text></Text>
           <TouchableOpacity
             style={[styles.gridAddBtn, isAdded && { backgroundColor: ACCENT }]}
@@ -511,6 +549,7 @@ const CategoriesScreen = () => {
         </View>
       ) : (
         <FlatList
+          key={viewMode}
           data={displayProducts}
           numColumns={viewMode === 'grid' ? 2 : 1}
           showsVerticalScrollIndicator={false}
@@ -813,12 +852,15 @@ const styles = StyleSheet.create({
   },
   gridImageContainer: {
     position: 'relative',
-    height: 140,
+    height: 160,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#E8F5E9',
   },
   gridImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#E8F5E9',
   },
   favoriteBtn: {
     position: 'absolute',
@@ -880,6 +922,12 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: '#888',
   },
+  gridDescription: {
+    fontSize: 11,
+    color: '#666',
+    lineHeight: 15,
+    marginBottom: 4,
+  },
   gridAddBtn: {
     flexDirection: 'row',
     backgroundColor: PRIMARY,
@@ -909,13 +957,13 @@ const styles = StyleSheet.create({
   },
   listImageContainer: {
     position: 'relative',
-    width: 120,
-    height: 120,
+    width: 140,
+    height: 140,
+    backgroundColor: '#E8F5E9',
   },
   listImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#E8F5E9',
   },
   lowStockBadge: {
     position: 'absolute',
@@ -975,6 +1023,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '400',
     color: '#888',
+  },
+  listDescription: {
+    fontSize: 12,
+    color: '#666',
+    lineHeight: 16,
+    marginBottom: 6,
   },
   listActions: {
     flexDirection: 'row',

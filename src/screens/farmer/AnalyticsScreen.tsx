@@ -82,7 +82,7 @@ const AnalyticsScreen = () => {
       // Fetch all products for this seller
       const { data: products, error: productsError } = await supabase
         .from('products')
-        .select('name, review_count, rating, is_available')
+        .select('id, name, review_count, rating, is_available')
         .eq('seller_id', user.id);
 
       if (productsError) throw productsError;

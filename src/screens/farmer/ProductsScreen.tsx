@@ -47,15 +47,30 @@ const ProductsScreen = () => {
   const [imagePreviewVisible, setImagePreviewVisible] = useState(false)
   const [saving, setSaving] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [formErrors, setFormErrors] = useState<{
+    name?: string
+    price?: string
+    stock?: string
+    category?: string
+    unit?: string
+  }>({})
 
-  // Default categories
+  // Default categories (matching customer categories)
   const categories = [
     { id: 'vegetables', name: 'Vegetables', icon: '🥬', description: 'Fresh vegetables and greens' },
+    { id: 'fruits', name: 'Fruits', icon: '🍎', description: 'Fresh fruits and berries' },
     { id: 'grains', name: 'Grains', icon: '🌾', description: 'Cereals and grain crops' },
     { id: 'legumes', name: 'Legumes', icon: '🫘', description: 'Beans, peas, and pulses' },
-    { id: 'fruits', name: 'Fruits', icon: '🍎', description: 'Fresh fruits and berries' },
     { id: 'tubers', name: 'Tubers', icon: '🥔', description: 'Root vegetables and tubers' },
+    { id: 'dairy', name: 'Dairy', icon: '🥛', description: 'Milk, cheese, and dairy products' },
+    { id: 'poultry', name: 'Poultry', icon: '🐔', description: 'Chicken, eggs, and poultry products' },
+    { id: 'seafood', name: 'Seafood', icon: '🐟', description: 'Fish and other seafood products' },
+    { id: 'organic', name: 'Organic', icon: '🌱', description: 'Certified organic products' },
+    { id: 'spices', name: 'Spices', icon: '🌶️', description: 'Spices and seasonings' },
     { id: 'herbs', name: 'Herbs', icon: '🌿', description: 'Culinary and medicinal herbs' },
+    { id: 'seeds', name: 'Seeds', icon: '🌰', description: 'Seeds for planting and consumption' },
+    { id: 'nuts', name: 'Nuts', icon: '🥜', description: 'Nuts and nut products' },
   ]
 
   // Default units
@@ -100,17 +115,20 @@ const ProductsScreen = () => {
   }, [searchQuery, products])
 
   const openAddModal = () => {
+    console.log('🟢 Opening modal, current modalVisible:', modalVisible)
     setNewProduct({ name: '', price: '', stock: '', image: '', category: '', categoryId: '', unit: 'kg' })
     setEditId(null)
     setShowCategorySelector(false)
     setShowUnitSelector(false)
+    setFormErrors({})
     setModalVisible(true)
+    console.log('🟢 Modal should be open now, modalVisible:', true)
   }
 
   const openEditModal = (product: Product) => {
     setNewProduct({
       name: product.name,
-      price: product.price,
+      price: product.price.replace('KES ', '').split('/')[0],
       stock: product.stock.toString(),
       image: product.image,
       category: product.category || 'Uncategorized',
@@ -119,6 +137,7 @@ const ProductsScreen = () => {
     })
     setShowCategorySelector(false)
     setShowUnitSelector(false)
+    setFormErrors({})
     setEditId(product.id)
     setModalVisible(true)
   }
@@ -134,18 +153,50 @@ const ProductsScreen = () => {
     }
   }
 
+  const validateForm = () => {
+    const errors: typeof formErrors = {}
+    
+    if (!newProduct.name.trim()) {
+      errors.name = 'Product name is required'
+    } else if (newProduct.name.trim().length < 3) {
+      errors.name = 'Name must be at least 3 characters'
+    }
+    
+    if (!newProduct.price) {
+      errors.price = 'Price is required'
+    } else if (isNaN(parseFloat(newProduct.price)) || parseFloat(newProduct.price) <= 0) {
+      errors.price = 'Please enter a valid price'
+    }
+    
+    if (!newProduct.stock) {
+      errors.stock = 'Quantity is required'
+    } else if (isNaN(parseInt(newProduct.stock)) || parseInt(newProduct.stock) < 0) {
+      errors.stock = 'Please enter a valid quantity'
+    }
+    
+    if (!newProduct.category) {
+      errors.category = 'Please select a category'
+    }
+    
+    setFormErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
   const handleSaveProduct = async () => {
-    if (!newProduct.name || !newProduct.price || !newProduct.stock) {
-      Alert.alert('Missing Information', 'Please fill in all required fields')
+    if (!validateForm()) {
+      Alert.alert('❌ Missing Information', 'Please correct the errors below')
       return
     }
 
     setSaving(true)
 
+    const priceValue = parseFloat(newProduct.price)
+    const stockValue = parseInt(newProduct.stock)
+    
     const productData = {
-      name: newProduct.name,
-      price: `KES ${newProduct.price}/${newProduct.unit}`,
-      stock: Number(newProduct.stock),
+      name: newProduct.name.trim(),
+      price: `KES ${priceValue.toFixed(2)}/${newProduct.unit}`,
+      stock: stockValue,
       image: newProduct.image || 'https://via.placeholder.com/400',
       description: '',
       category: newProduct.category || 'Uncategorized',
@@ -168,7 +219,8 @@ const ProductsScreen = () => {
       setEditId(null)
       setShowCategorySelector(false)
       setShowUnitSelector(false)
-      
+      setFormErrors({})
+
       // Show success with optional warning
       if (result.error) {
         // Check if it's a storage policy issue
@@ -707,7 +759,7 @@ const ProductsScreen = () => {
             </TouchableOpacity>
             <Image
               source={{ uri: selectedProduct?.image || 'https://via.placeholder.com/400' }}
-              style={styles.imagePreview}
+              style={styles.imagePreviewFull}
               resizeMode="contain"
             />
           </View>
@@ -724,71 +776,9 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   title: { fontSize: 26, fontWeight: '800', color: '#1b5e20' },
   addBtn: { backgroundColor: '#2e7d32', padding: 6, borderRadius: 24 },
-  
-  // Search styles
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    marginBottom: 10,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-  },
-  searchIcon: { marginRight: 8 },
-  searchInput: {
-    flex: 1,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: '#333',
-  },
-  countContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  countText: { fontSize: 13, color: '#666', fontWeight: '600' },
-  refreshBtn: { padding: 4 },
-  
-  // Empty state
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#999',
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#aaa',
-    marginTop: 8,
-  },
-  
-  // Loading state
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 16, fontSize: 16, color: '#666' },
-  
-  card: { flexDirection: 'row', backgroundColor: '#ffffff', borderRadius: 16, padding: 12, marginBottom: 14, elevation: 4, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8 },
-  productImage: { width: 72, height: 72, borderRadius: 12 },
-  productInfo: { flex: 1, paddingHorizontal: 12, justifyContent: 'center' },
-  productName: { fontSize: 16, fontWeight: '800', color: '#1b5e20' },
-  productPrice: { fontSize: 14, fontWeight: '700', color: '#4CAF50', marginTop: 4 },
-  productStock: { fontSize: 12, color: '#888', marginTop: 2 },
-  actions: { justifyContent: 'space-between', alignItems: 'center' },
-  actionBtn: { marginVertical: 4, padding: 6, borderRadius: 12, backgroundColor: '#f3fff4' },
   modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#00000066' },
   modalContent: { width: '90%', borderRadius: 16, padding: 20, elevation: 6 },
   modalTitle: { fontSize: 20, fontWeight: '800', color: '#1b5e20', marginBottom: 20, textAlign: 'center' },
-  inputGroup: { marginBottom: 16 },
-  inputLabel: { fontSize: 14, fontWeight: '700', color: '#1b5e20', marginBottom: 6, marginLeft: 4 },
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f3fff4', borderRadius: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: '#c8e6c9' },
-  inputWithIcon: { flex: 1, padding: 12, fontSize: 15, color: '#333', marginLeft: 8 },
-  input: { backgroundColor: '#f3fff4', padding: 12, borderRadius: 12, marginBottom: 12 },
-  modalBtn: { backgroundColor: '#2e7d32', padding: 14, borderRadius: 12, alignItems: 'center' },
-  modalBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   imagePicker: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -809,7 +799,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 12,
   },
-  // Category selector styles
+  inputGroup: { marginBottom: 16 },
+  inputLabel: { fontSize: 14, fontWeight: '700', color: '#1b5e20', marginBottom: 6, marginLeft: 4 },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f3fff4', borderRadius: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: '#c8e6c9' },
+  inputWithIcon: { flex: 1, padding: 12, fontSize: 15, color: '#333', marginLeft: 8 },
+  modalBtn: { backgroundColor: '#2e7d32', padding: 14, borderRadius: 12, alignItems: 'center' },
+  modalBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   categorySelector: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -894,7 +889,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#888',
   },
-  // Unit selector styles
   unitSelector: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -990,6 +984,61 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginLeft: 4,
   },
+
+  // Search styles
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  searchIcon: { marginRight: 8 },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#333',
+  },
+  countContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  countText: { fontSize: 13, color: '#666', fontWeight: '600' },
+  refreshBtn: { padding: 4 },
+  
+  // Empty state
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#999',
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#aaa',
+    marginTop: 8,
+  },
+  
+  // Loading state
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 16, fontSize: 16, color: '#666' },
+  
+  card: { flexDirection: 'row', backgroundColor: '#ffffff', borderRadius: 16, padding: 12, marginBottom: 14, elevation: 4, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8 },
+  productImage: { width: 72, height: 72, borderRadius: 12 },
+  productInfo: { flex: 1, paddingHorizontal: 12, justifyContent: 'center' },
+  productName: { fontSize: 16, fontWeight: '800', color: '#1b5e20' },
+  productPrice: { fontSize: 14, fontWeight: '700', color: '#4CAF50', marginTop: 4 },
+  productStock: { fontSize: 12, color: '#888', marginTop: 2 },
+  actions: { justifyContent: 'space-between', alignItems: 'center' },
+  actionBtn: { marginVertical: 4, padding: 6, borderRadius: 12, backgroundColor: '#f3fff4' },
   detailModalContent: { width: '90%', borderRadius: 16, padding: 20, elevation: 6, maxHeight: '80%' },
   detailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   detailTitle: { fontSize: 20, fontWeight: '800', color: '#1b5e20' },
@@ -1013,5 +1062,5 @@ const styles = StyleSheet.create({
   },
   imagePreviewContainer: { flex: 1, backgroundColor: '#000000dd', justifyContent: 'center', alignItems: 'center' },
   imagePreviewClose: { position: 'absolute', top: 50, right: 20, zIndex: 10 },
-  imagePreview: { width: '100%', height: '80%' },
+  imagePreviewFull: { width: '100%', height: '80%' },
 })
