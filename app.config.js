@@ -26,7 +26,9 @@ export default {
       "expo-font"
     ],
     extra: {
-      eas: {},
+      eas: {
+        projectId: "0135833f-d9f6-4151-a4f0-ea91e1a40fe5"
+      },
       supabaseUrl: "https://jluxaezbaiilupmfgmgm.supabase.co",
       supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsdXhhZXpiYWlpbHVwbWZnbWdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4MDI2OTAsImV4cCI6MjA4NjM3ODY5MH0.2Psokk5EMrtzrV4sxI-sUczHCchxPrzZCV0W6Q78CEU",
       supabaseProductsBucket: "products",
@@ -37,7 +39,7 @@ export default {
       policy: "appVersion"
     },
     updates: {
-      url: "https://u.expo.dev/f180a8fc-f1a6-4594-961d-14aa8bca6b10"
+      url: "https://u.expo.dev/0135833f-d9f6-4151-a4f0-ea91e1a40fe5"
     }
   }
 };
