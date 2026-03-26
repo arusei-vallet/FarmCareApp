@@ -3,7 +3,7 @@ export default {
     name: "farmcare",
     slug: "farmcare",
     version: "1.0.0",
-    owner: "farmcare",
+    owner: "vallet",
     orientation: "portrait",
     userInterfaceStyle: "light",
     newArchEnabled: true,
