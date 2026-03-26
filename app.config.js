@@ -7,6 +7,7 @@ export default {
     orientation: "portrait",
     userInterfaceStyle: "light",
     newArchEnabled: true,
+    icon: "./assets/icon.png",
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.farmcare.app"
@@ -18,7 +19,8 @@ export default {
       permissions: [
         "INTERNET",
         "ACCESS_NETWORK_STATE"
-      ]
+      ],
+      icon: "./assets/icon.png"
     },
     plugins: [
       "expo-font"

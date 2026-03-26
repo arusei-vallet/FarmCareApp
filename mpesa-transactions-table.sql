@@ -1,139 +1,223 @@
 -- ============================================
--- M-Pesa Transactions Table Setup
+-- M-Pesa Transactions Table
 -- ============================================
--- Run this SQL in Supabase SQL Editor:
--- https://app.supabase.com/project/_/sql
+-- Stores all M-Pesa STK Push transactions
+-- Tracks payment status, receipts, and order links
 -- ============================================
 
--- Drop existing table if it exists (for fresh setup)
-DROP TABLE IF EXISTS mpesa_transactions CASCADE;
-
--- Create M-Pesa Transactions Table
-CREATE TABLE mpesa_transactions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
-  customer_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  checkout_request_id TEXT UNIQUE,
-  merchant_request_id TEXT,
-  phone_number TEXT,
-  amount DECIMAL(10,2) NOT NULL,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'cancelled', 'failed')),
-  result_code TEXT,
-  result_desc TEXT,
-  mpesa_receipt_number TEXT,
-  transaction_date TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+-- Create the table
+CREATE TABLE IF NOT EXISTS mpesa_transactions (
+  -- Primary key
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  
+  -- M-Pesa identifiers
+  checkout_request_id text NOT NULL,
+  merchant_request_id text,
+  
+  -- Transaction status
+  status text NOT NULL DEFAULT 'pending',
+  result_code text,
+  result_desc text,
+  
+  -- Payment details
+  mpesa_receipt_number text,
+  transaction_date timestamptz,
+  amount numeric(10, 2),
+  phone_number text,
+  
+  -- Reference information
+  account_reference text,
+  transaction_desc text,
+  
+  -- Links to other tables
+  order_id uuid REFERENCES orders(id) ON DELETE SET NULL,
+  customer_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+  
+  -- Additional metadata
+  metadata jsonb DEFAULT '{}',
+  
+  -- Timestamps
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
 );
 
--- Create indexes for faster lookups
-CREATE INDEX idx_mpesa_checkout_request ON mpesa_transactions(checkout_request_id);
-CREATE INDEX idx_mpesa_order ON mpesa_transactions(order_id);
-CREATE INDEX idx_mpesa_customer ON mpesa_transactions(customer_id);
-CREATE INDEX idx_mpesa_status ON mpesa_transactions(status);
-CREATE INDEX idx_mpesa_created_at ON mpesa_transactions(created_at);
+-- ============================================
+-- Indexes for Performance
+-- ============================================
 
--- Enable Row Level Security (RLS)
+-- Fast lookup by CheckoutRequestID (used in callbacks and polling)
+CREATE INDEX IF NOT EXISTS idx_mpesa_checkout_request_id 
+  ON mpesa_transactions(checkout_request_id);
+
+-- Fast lookup by order ID
+CREATE INDEX IF NOT EXISTS idx_mpesa_order_id 
+  ON mpesa_transactions(order_id);
+
+-- Fast lookup by status (for monitoring pending/completed transactions)
+CREATE INDEX IF NOT EXISTS idx_mpesa_status 
+  ON mpesa_transactions(status);
+
+-- Fast lookup by customer ID
+CREATE INDEX IF NOT EXISTS idx_mpesa_customer_id 
+  ON mpesa_transactions(customer_id);
+
+-- Fast lookup by phone number
+CREATE INDEX IF NOT EXISTS idx_mpesa_phone_number 
+  ON mpesa_transactions(phone_number);
+
+-- Composite index for common query pattern
+CREATE INDEX IF NOT EXISTS idx_mpesa_status_created 
+  ON mpesa_transactions(status, created_at DESC);
+
+-- ============================================
+-- Comments for Documentation
+-- ============================================
+
+COMMENT ON TABLE mpesa_transactions IS 
+  'Stores M-Pesa STK Push payment transactions and their status';
+
+COMMENT ON COLUMN mpesa_transactions.checkout_request_id IS 
+  'Unique ID from M-Pesa for tracking STK push requests';
+
+COMMENT ON COLUMN mpesa_transactions.merchant_request_id IS 
+  'Merchant request ID from M-Pesa';
+
+COMMENT ON COLUMN mpesa_transactions.status IS 
+  'Transaction status: pending, completed, cancelled, failed';
+
+COMMENT ON COLUMN mpesa_transactions.result_code IS 
+  'M-Pesa result code (0 = success, others = various errors)';
+
+COMMENT ON COLUMN mpesa_transactions.mpesa_receipt_number IS 
+  'M-Pesa transaction receipt number (e.g., QGH1234567)';
+
+COMMENT ON COLUMN mpesa_transactions.transaction_date IS 
+  'Date and time when the transaction was completed';
+
+COMMENT ON COLUMN mpesa_transactions.amount IS 
+  'Transaction amount in KES';
+
+COMMENT ON COLUMN mpesa_transactions.phone_number IS 
+  'Customer phone number in format 2547XXXXXXXX';
+
+COMMENT ON COLUMN mpesa_transactions.account_reference IS 
+  'Account reference (e.g., order number)';
+
+COMMENT ON COLUMN mpesa_transactions.transaction_desc IS 
+  'Description of the transaction';
+
+COMMENT ON COLUMN mpesa_transactions.order_id IS 
+  'Reference to the associated order';
+
+COMMENT ON COLUMN mpesa_transactions.customer_id IS 
+  'Reference to the authenticated user (auth.users)';
+
+COMMENT ON COLUMN mpesa_transactions.user_id IS 
+  'Reference to the user profile (users table)';
+
+COMMENT ON COLUMN mpesa_transactions.metadata IS 
+  'Additional transaction metadata from M-Pesa';
+
+-- ============================================
+-- Row Level Security (RLS) Policies
+-- ============================================
+
+-- Enable RLS
 ALTER TABLE mpesa_transactions ENABLE ROW LEVEL SECURITY;
-
--- ============================================
--- RLS Policies
--- ============================================
 
 -- Policy: Users can view their own transactions
 CREATE POLICY "Users can view own transactions"
-ON mpesa_transactions
-FOR SELECT
-USING (auth.uid() = customer_id);
+  ON mpesa_transactions
+  FOR SELECT
+  USING (
+    auth.uid() = customer_id 
+    OR auth.uid() = user_id
+  );
 
--- Policy: Service role has full access (for Edge Functions)
+-- Policy: Users can insert their own transactions
+CREATE POLICY "Users can insert own transactions"
+  ON mpesa_transactions
+  FOR INSERT
+  WITH CHECK (
+    auth.uid() = customer_id 
+    OR auth.uid() = user_id
+  );
+
+-- Policy: Users can update their own transactions
+CREATE POLICY "Users can update own transactions"
+  ON mpesa_transactions
+  FOR UPDATE
+  USING (
+    auth.uid() = customer_id 
+    OR auth.uid() = user_id
+  );
+
+-- Policy: Service role can do everything (for edge functions)
 CREATE POLICY "Service role full access"
-ON mpesa_transactions
-FOR ALL
-USING (auth.jwt()->>'role' = 'service_role');
-
--- Policy: Allow insert for authenticated users
-CREATE POLICY "Users can create transactions"
-ON mpesa_transactions
-FOR INSERT
-WITH CHECK (auth.uid() = customer_id);
+  ON mpesa_transactions
+  FOR ALL
+  USING (auth.jwt()->>'role' = 'service_role');
 
 -- ============================================
--- Comments for documentation
+-- Trigger: Auto-update updated_at timestamp
 -- ============================================
-COMMENT ON TABLE mpesa_transactions IS 'Stores M-Pesa STK Push payment transactions';
-COMMENT ON COLUMN mpesa_transactions.checkout_request_id IS 'Unique ID from M-Pesa STK Push request';
-COMMENT ON COLUMN mpesa_transactions.merchant_request_id IS 'Merchant request ID from M-Pesa';
-COMMENT ON COLUMN mpesa_transactions.status IS 'Transaction status: pending, completed, cancelled, failed';
-COMMENT ON COLUMN mpesa_transactions.result_code IS 'M-Pesa result code (0 = success)';
-COMMENT ON COLUMN mpesa_transactions.mpesa_receipt_number IS 'M-Pesa receipt number for successful transactions';
-COMMENT ON COLUMN mpesa_transactions.transaction_date IS 'Date and time of transaction from M-Pesa';
+
+CREATE OR REPLACE FUNCTION update_mpesa_transactions_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_mpesa_transactions_updated_at
+  BEFORE UPDATE ON mpesa_transactions
+  FOR EACH ROW
+  EXECUTE FUNCTION update_mpesa_transactions_updated_at();
 
 -- ============================================
--- Grant permissions to authenticated users
+-- Sample Queries for Testing
 -- ============================================
-GRANT SELECT ON mpesa_transactions TO authenticated;
-GRANT INSERT ON mpesa_transactions TO authenticated;
+
+-- View recent transactions
+-- SELECT 
+--   id,
+--   checkout_request_id,
+--   status,
+--   amount,
+--   phone_number,
+--   mpesa_receipt_number,
+--   created_at
+-- FROM mpesa_transactions
+-- ORDER BY created_at DESC
+-- LIMIT 10;
+
+-- View pending transactions
+-- SELECT * FROM mpesa_transactions
+-- WHERE status = 'pending'
+-- ORDER BY created_at DESC;
+
+-- View successful transactions today
+-- SELECT * FROM mpesa_transactions
+-- WHERE status = 'completed'
+--   AND DATE(created_at) = CURRENT_DATE
+-- ORDER BY created_at DESC;
+
+-- View transactions by order
+-- SELECT * FROM mpesa_transactions
+-- WHERE order_id = 'your-order-id-here';
 
 -- ============================================
--- Create a view for transaction summary
+-- Success Message
 -- ============================================
-CREATE OR REPLACE VIEW mpesa_transaction_summary AS
-SELECT 
-  DATE(created_at) as transaction_date,
-  status,
-  COUNT(*) as transaction_count,
-  SUM(amount) as total_amount
-FROM mpesa_transactions
-GROUP BY DATE(created_at), status
-ORDER BY transaction_date DESC;
 
--- Grant access to summary view
-GRANT SELECT ON mpesa_transaction_summary TO authenticated;
-
--- ============================================
--- Sample data for testing (optional)
--- ============================================
--- Uncomment to insert test data
-/*
-INSERT INTO mpesa_transactions (
-  checkout_request_id, 
-  merchant_request_id, 
-  phone_number, 
-  amount, 
-  status, 
-  result_code, 
-  result_desc
-) VALUES 
-(
-  'ws_CO_123456789', 
-  '12345', 
-  '254708374149', 
-  100.00, 
-  'completed', 
-  '0', 
-  'The service request is processed successfully.'
-),
-(
-  'ws_CO_987654321', 
-  '12346', 
-  '254708374150', 
-  500.00, 
-  'cancelled', 
-  '1032', 
-  'Request cancelled by user'
-);
-*/
-
--- ============================================
--- Verification Query
--- ============================================
--- Run this to verify table creation
-SELECT 
-  table_name, 
-  column_name, 
-  data_type, 
-  is_nullable
-FROM information_schema.columns
-WHERE table_name = 'mpesa_transactions'
-ORDER BY ordinal_position;
+DO $$
+BEGIN
+  RAISE NOTICE '✅ M-Pesa transactions table created successfully!';
+  RAISE NOTICE '📊 Table: mpesa_transactions';
+  RAISE NOTICE '📝 Columns: 17';
+  RAISE NOTICE '🔑 Indexes: 6';
+  RAISE NOTICE '🔒 RLS Policies: 4';
+  RAISE NOTICE '⚡ Triggers: 1';
+END $$;
