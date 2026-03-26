@@ -3,12 +3,13 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "start": "expo start",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
-    "web": "expo start --web",
-    "build:android:preview": "eas build --profile preview:device --platform android",
-    "build:android:prod": "eas build --profile production --platform android"
+    "start": "npx expo start",
+    "android": "npx expo run:android",
+    "ios": "npx expo run:ios",
+    "web": "npx expo start --web",
+    "prebuild": "npx expo prebuild",
+    "build:android:preview": "npx eas build --profile preview:device --platform android",
+    "build:android:prod": "npx eas build --profile production --platform android"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
