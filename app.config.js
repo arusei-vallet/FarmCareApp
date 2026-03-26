@@ -9,12 +9,12 @@ export default {
     newArchEnabled: true,
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.farmcareexpo.app"
+      bundleIdentifier: "com.farmcare.app"
     },
     android: {
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
-      package: "com.farmcareexpo.app",
+      package: "com.farmcare.app",
       permissions: [
         "INTERNET",
         "ACCESS_NETWORK_STATE"
@@ -30,7 +30,7 @@ export default {
       supabaseUrl: "https://jluxaezbaiilupmfgmgm.supabase.co",
       supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsdXhhZXpiYWlpbHVwbWZnbWdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4MDI2OTAsImV4cCI6MjA4NjM3ODY5MH0.2Psokk5EMrtzrV4sxI-sUczHCchxPrzZCV0W6Q78CEU",
       supabaseProductsBucket: "products",
-      appName: "FarmCare",
+      appName: "farmcare",
       version: "1.0.0"
     },
     runtimeVersion: {
