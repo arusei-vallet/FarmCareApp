@@ -4,56 +4,16 @@
     "appVersionSource": "remote"
   },
   "build": {
-    "development": {
-      "extends": "production",
-      "distribution": "internal",
-      "android": {
-        "gradleCommand": ":app:assembleDebug",
-        "buildType": "apk"
-      },
-      "ios": {
-        "buildConfiguration": "Debug",
-        "simulator": true
-      },
-      "channel": "development"
-    },
-    "development:device": {
-      "extends": "development",
-      "distribution": "internal",
-      "android": {
-        "gradleCommand": ":app:assembleDebug",
-        "buildType": "apk"
-      },
-      "channel": "development_device"
-    },
     "preview": {
-      "extends": "production",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      },
-      "channel": "preview"
-    },
-    "preview:device": {
-      "extends": "preview",
-      "ios": {
-        "simulator": false
-      },
-      "channel": "preview_device"
+      }
     },
     "production": {
-      "channel": "production",
       "android": {
-        "gradleCommand": ":app:assembleDebug",
         "buildType": "apk"
-      },
-      "ios": {
-        "buildConfiguration": "Debug",
-        "simulator": false
       }
     }
-  },
-  "submit": {
-    "production": {}
   }
 }
