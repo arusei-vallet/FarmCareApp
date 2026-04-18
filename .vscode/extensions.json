@@ -1,5 +1,6 @@
 {
     "recommendations": [
-        "qwenlm.qwen-code-vscode-ide-companion"
+        "qwenlm.qwen-code-vscode-ide-companion",
+        "kingleo.qwen"
     ]
 }
